@@ -65,22 +65,11 @@ const NAV_ITEMS = [
         ),
       },
       {
-        href: '/dashboard/projetos',
+        href: '/dashboard/projetos-modelos',
         label: 'Projetos',
         icon: (
           <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ),
-      },
-      {
-        href: '/dashboard/projetos-modelos',
-        label: 'Projetos Modelos',
-        icon: (
-          <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" />
-            <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <path d="M6 8h4M6 11h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
         ),
       },
@@ -131,7 +120,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard/produtos': 'Produtos',
   '/dashboard/documentos': 'Documentos',
   '/dashboard/projetos': 'Projetos',
-  '/dashboard/projetos-modelos': 'Projetos Modelos',
+  '/dashboard/projetos-modelos': 'Projetos',
   '/dashboard/admin/produtos-modelos': 'Produtos Modelos (Admin)',
   '/dashboard/admin/kits-modelos': 'Kits Modelos (Admin)',
   '/dashboard/admin/usuarios': 'Usuários (Admin)',
