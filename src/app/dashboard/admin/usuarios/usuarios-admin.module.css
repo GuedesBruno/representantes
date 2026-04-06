@@ -1,0 +1,200 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.loading {
+  padding: var(--space-10);
+  text-align: center;
+  color: var(--color-gray-500);
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.title {
+  font-size: var(--font-size-xl);
+  color: var(--color-gray-800);
+}
+
+.searchInput {
+  width: 100%;
+  max-width: 380px;
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  padding: 0.62rem 0.75rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+}
+
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: var(--space-5);
+}
+
+.sectionTitle {
+  font-size: var(--font-size-base);
+  margin-bottom: var(--space-3);
+}
+
+.tableWrap {
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.table th,
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-gray-100);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.roleBadge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.roleAdmin {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.roleRep {
+  color: var(--color-gray-600);
+  background: var(--color-gray-100);
+}
+
+.editButton {
+  border: 1px solid var(--color-gray-300);
+  background: var(--color-white);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+@media (max-width: 680px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-gray-600);
+}
+
+.formGrid input,
+.formGrid select {
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.62rem;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-800);
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.checkboxRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.checkboxLabel {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-700);
+}
+
+.error {
+  color: var(--color-error-text);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--radius-md);
+  padding: 0.62rem 0.75rem;
+}
+
+.success {
+  color: var(--color-success-text);
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
+  border-radius: var(--radius-md);
+  padding: 0.62rem 0.75rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.primary,
+.secondary {
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.56rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.secondary {
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+}
+
+.empty {
+  color: var(--color-gray-500);
+}

@@ -29,6 +29,21 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+
+      // Usuário comum pode atualizar apenas perfil/preferências próprias.
+      allow update: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.isAdmin == resource.data.isAdmin
+        && request.resource.data.role == resource.data.role;
+
+      // Criação/edição estrutural de users fica com o backend/admin.
+      allow create, delete: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

@@ -157,6 +157,16 @@
   gap: 10px;
 }
 
+.infoBox {
+  background: var(--color-info-bg);
+  border: 1px solid var(--color-info-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--color-info-text);
+  margin-top: 10px;
+}
+
 .button {
   width: 100%;
   padding: 14px;
@@ -192,6 +202,27 @@
 .button:focus-visible {
   outline: 3px solid #315a96;
   outline-offset: 3px;
+}
+
+.forgotPasswordButton {
+  border: none;
+  background: transparent;
+  color: #1f4e96;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-top: 6px;
+  align-self: center;
+}
+
+.forgotPasswordButton:hover:not(:disabled) {
+  color: #173b71;
+}
+
+.forgotPasswordButton:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .spinner {

@@ -1,6 +1,7 @@
 import process from 'node:process';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 function fail(message) {
   console.error(message);
@@ -34,13 +35,31 @@ if (getApps().length === 0) {
 }
 
 const auth = getAuth();
+const db = getFirestore();
 
 try {
   const user = await auth.getUserByEmail(email);
   await auth.setCustomUserClaims(user.uid, { admin: makeAdmin });
   await auth.revokeRefreshTokens(user.uid);
 
+  const now = new Date();
+  await db.collection('users').doc(user.uid).set(
+    {
+      uid: user.uid,
+      email: user.email ?? email,
+      displayName: user.displayName ?? null,
+      role: makeAdmin ? 'admin' : 'representante',
+      isAdmin: makeAdmin,
+      audit: {
+        updatedAt: now,
+        roleUpdatedAt: now,
+      },
+    },
+    { merge: true }
+  );
+
   console.log(`Claim admin=${makeAdmin} aplicada para ${email}.`);
+  console.log('Documento users sincronizado com role/isAdmin.');
   console.log('Peça para o usuário sair e entrar novamente para atualizar o token.');
 } catch (error) {
   console.error('Erro ao definir custom claim:', error);

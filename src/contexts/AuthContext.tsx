@@ -10,6 +10,7 @@ import {
 } from 'react';
 import {
   GoogleAuthProvider,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -23,6 +24,7 @@ interface AuthContextValue {
   isAdmin: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -102,6 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loadUserClaims(credential.user);
   }, [loadUserClaims]);
 
+  const resetPassword = useCallback(async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
+  }, []);
+
   const logout = useCallback(async () => {
     await signOut(auth);
     await fetch('/api/auth/session', { method: 'DELETE' });
@@ -109,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, login, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, isAdmin, loading, login, resetPassword, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import styles from './login.module.css';
 
 function LoginForm() {
-  const { login, loginWithGoogle } = useAuth();
+  const { login, resetPassword, loginWithGoogle } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const adminSignupMessage = 'A criação de conta é feita pelo administrador do sistema. Solicite seu acesso.';
@@ -16,6 +16,7 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   const emailId = useId();
   const passwordId = useId();
@@ -41,6 +42,7 @@ function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setInfo(null);
 
     if (mode === 'signup') {
       setError(adminSignupMessage);
@@ -67,11 +69,33 @@ function LoginForm() {
 
   const handleGoogleLogin = async () => {
     setError(null);
+    setInfo(null);
     setLoading(true);
     try {
       await loginWithGoogle();
       const from = searchParams.get('from') || '/dashboard/folhetos';
       router.push(from);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? '';
+      setError(getErrorMessage(code));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError(null);
+    setInfo(null);
+
+    if (!email.trim()) {
+      setError('Informe o e-mail para receber o link de redefinição de senha.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await resetPassword(email.trim());
+      setInfo('Se o e-mail existir, você receberá um link para redefinir a senha.');
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code ?? '';
       setError(getErrorMessage(code));
@@ -147,6 +171,12 @@ function LoginForm() {
             </div>
           )}
 
+          {info && (
+            <div className={styles.infoBox} role="status" aria-live="polite">
+              {info}
+            </div>
+          )}
+
           <form
             className={styles.form}
             onSubmit={handleSubmit}
@@ -202,6 +232,17 @@ function LoginForm() {
                 </>
               ) : mode === 'login' ? 'Entrar' : 'Solicite ao Administrador'}
             </button>
+
+            {mode === 'login' && (
+              <button
+                type="button"
+                className={styles.forgotPasswordButton}
+                onClick={handleForgotPassword}
+                disabled={loading}
+              >
+                Esqueci minha senha
+              </button>
+            )}
           </form>
 
           <div className={styles.separator} aria-hidden="true">
