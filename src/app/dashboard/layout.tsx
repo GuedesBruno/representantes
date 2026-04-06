@@ -1,0 +1,254 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import styles from './dashboard.module.css';
+
+const NAV_ITEMS = [
+  {
+    section: 'Materiais',
+    items: [
+      {
+        href: '/dashboard/folhetos',
+        label: 'Folhetos',
+        icon: (
+          <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 3h9l5 5v13H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M15 3v6h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        ),
+      },
+      {
+        href: '/dashboard/tabela-precos',
+        label: 'Tabela de Preços',
+        icon: (
+          <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="2" />
+            <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="2" />
+            <line x1="9" y1="10" x2="9" y2="20" stroke="currentColor" strokeWidth="2" />
+          </svg>
+        ),
+      },
+      {
+        href: '/dashboard/videos',
+        label: 'Vídeos',
+        icon: (
+          <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3" y="5" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="2" />
+            <polygon points="10,9 10,15 15,12" fill="currentColor" />
+            <path d="M17 10l4-2v8l-4-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ),
+      },
+      {
+        href: '/dashboard/produtos',
+        label: 'Produtos',
+        icon: (
+          <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M3 7l9-4 9 4-9 4-9-4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M3 7v10l9 4 9-4V7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ),
+      },
+      {
+        href: '/dashboard/documentos',
+        label: 'Documentos',
+        icon: (
+          <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M14 2v6h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <line x1="8" y1="17" x2="13" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+      {
+        href: '/dashboard/projetos',
+        label: 'Projetos',
+        icon: (
+          <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ),
+      },
+      {
+        href: '/dashboard/projetos-modelos',
+        label: 'Projetos Modelos',
+        icon: (
+          <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" />
+            <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M6 8h4M6 11h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+    ],
+  },
+];
+
+const ADMIN_NAV_ITEMS = [
+  {
+    href: '/dashboard/admin/produtos-modelos',
+    label: 'Produtos Modelos',
+    icon: (
+      <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3 7l9-4 9 4-9 4-9-4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M3 7v10l9 4 9-4V7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="19" cy="19" r="3" fill="currentColor" />
+        <path d="M19 17v2M19 21v0" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    href: '/dashboard/admin/kits-modelos',
+    label: 'Kits Modelos',
+    icon: (
+      <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+];
+
+const PAGE_TITLES: Record<string, string> = {
+  '/dashboard/folhetos': 'Folhetos',
+  '/dashboard/tabela-precos': 'Tabela de Preços',
+  '/dashboard/videos': 'Vídeos',
+  '/dashboard/produtos': 'Produtos',
+  '/dashboard/documentos': 'Documentos',
+  '/dashboard/projetos': 'Projetos',
+  '/dashboard/projetos-modelos': 'Projetos Modelos',
+  '/dashboard/admin/produtos-modelos': 'Produtos Modelos (Admin)',
+  '/dashboard/admin/kits-modelos': 'Kits Modelos (Admin)',
+};
+
+function SidebarContent() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user, isAdmin, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
+
+  const initials = user?.displayName
+    ? user.displayName.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+    : user?.email?.[0].toUpperCase() ?? 'R';
+
+  return (
+    <>
+      <div className={styles.sidebarHeader}>
+        <div className={styles.sidebarLogoIcon} aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="5" r="2.5" fill="white" />
+            <path d="M12 8.5C9.5 8.5 7.5 10.5 7.5 13v4.5h2V13c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v4.5h2V13C16.5 10.5 14.5 8.5 12 8.5z" fill="white" />
+          </svg>
+        </div>
+        <div>
+          <div className={styles.sidebarLogoText}>Tecassistiva</div>
+          <div className={styles.sidebarSubtext}>Portal de Representantes</div>
+        </div>
+      </div>
+
+      <nav className={styles.sidebarNav} aria-label="Navegação principal">
+        {NAV_ITEMS.map((section) => (
+          <div key={section.section} className={styles.navSection}>
+            <div className={styles.navSectionLabel} aria-hidden="true">
+              {section.section}
+            </div>
+            {section.items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${styles.navItem} ${pathname.startsWith(item.href) ? styles.active : ''}`}
+                aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
+              >
+                {item.icon}
+                <span className={styles.navLabel}>{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        ))}
+        {isAdmin && (
+          <div className={styles.navSection}>
+            <div className={styles.navSectionLabel} aria-hidden="true">
+              Admin
+            </div>
+            {ADMIN_NAV_ITEMS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${styles.navItem} ${pathname.startsWith(item.href) ? styles.active : ''}`}
+                aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
+              >
+                {item.icon}
+                <span className={styles.navLabel}>{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </nav>
+
+      <div className={styles.sidebarFooter}>
+        <div className={styles.userCard} aria-label={`Usuário: ${user?.displayName ?? user?.email}`}>
+          <div className={styles.userAvatar} aria-hidden="true">{initials}</div>
+          <div className={styles.userInfo}>
+            <div className={styles.userName}>{user?.displayName ?? 'Representante'}</div>
+            <div className={styles.userEmail}>{user?.email}</div>
+          </div>
+        </div>
+        <button
+          onClick={handleLogout}
+          className={styles.logoutButton}
+          type="button"
+          aria-label="Sair da conta"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points="16 17 21 12 16 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          <span>Sair</span>
+        </button>
+      </div>
+    </>
+  );
+}
+
+function DashboardShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const pageTitle = PAGE_TITLES[pathname] ?? 'Dashboard';
+
+  return (
+    <div className={styles.layout}>
+      <aside className={styles.sidebar} aria-label="Menu lateral">
+        <SidebarContent />
+      </aside>
+
+      <div className={styles.main}>
+        <header className={styles.header}>
+          <h1 className={styles.headerTitle} id="page-title">{pageTitle}</h1>
+        </header>
+
+        <main
+          id="main-content"
+          className={styles.content}
+          aria-labelledby="page-title"
+        >
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </AuthProvider>
+  );
+}
