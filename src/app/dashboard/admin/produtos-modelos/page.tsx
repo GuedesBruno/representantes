@@ -13,6 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
+import * as XLSX from 'xlsx';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import styles from './produtos-admin.module.css';
@@ -46,7 +47,7 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-function parseCsvLine(line: string): string[] {
+function parseDelimitedLine(line: string, delimiter: ',' | ';'): string[] {
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -59,7 +60,7 @@ function parseCsvLine(line: string): string[] {
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (ch === ',' && !inQuotes) {
+    } else if (ch === delimiter && !inQuotes) {
       result.push(current.trim());
       current = '';
     } else {
@@ -68,6 +69,23 @@ function parseCsvLine(line: string): string[] {
   }
   result.push(current.trim());
   return result;
+}
+
+function detectDelimiter(headerLine: string): ',' | ';' {
+  const commaCount = (headerLine.match(/,/g) ?? []).length;
+  const semicolonCount = (headerLine.match(/;/g) ?? []).length;
+  return semicolonCount > commaCount ? ';' : ',';
+}
+
+function normalizeRow(values: unknown[]): typeof EMPTY_FORM {
+  const toText = (v: unknown) => String(v ?? '').trim();
+  return {
+    nome: toText(values[0]),
+    fotoUrl: toText(values[1]),
+    precoUnitario: toText(values[2]),
+    linkSite: toText(values[3]),
+    descricaoCurta: toText(values[4]),
+  };
 }
 
 export default function ProdutosModelosAdminPage() {
@@ -232,6 +250,54 @@ export default function ProdutosModelosAdminPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const fileName = file.name.toLowerCase();
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = ev.target?.result as ArrayBuffer;
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          if (!firstSheetName) {
+            setCsvError('Planilha sem aba válida.');
+            return;
+          }
+
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' }) as unknown[][];
+
+          if (rawRows.length < 2) {
+            setCsvError('Planilha vazia ou sem dados além do cabeçalho.');
+            return;
+          }
+
+          const rows: typeof EMPTY_FORM[] = [];
+          for (let i = 1; i < rawRows.length; i++) {
+            const cols = rawRows[i] ?? [];
+            if (cols.every((c) => String(c ?? '').trim() === '')) continue;
+            if (cols.length < 5) {
+              setCsvError(`Linha ${i + 1} inválida: esperadas 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta).`);
+              return;
+            }
+            rows.push(normalizeRow(cols));
+          }
+
+          if (rows.length === 0) {
+            setCsvError('Planilha sem linhas válidas para importação.');
+            return;
+          }
+
+          setCsvPreview(rows);
+        } catch {
+          setCsvError('Erro ao ler arquivo Excel. Verifique se o arquivo está íntegro.');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
@@ -241,20 +307,22 @@ export default function ProdutosModelosAdminPage() {
         return;
       }
 
+      const delimiter = detectDelimiter(lines[0]);
+
       const rows: typeof EMPTY_FORM[] = [];
       for (let i = 1; i < lines.length; i++) {
-        const cols = parseCsvLine(lines[i]);
+        const cols = parseDelimitedLine(lines[i], delimiter);
+        if (cols.every((c) => c.trim() === '')) continue;
         if (cols.length < 5) {
-          setCsvError(`Linha ${i + 1} inválida: esperadas 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta).`);
+          setCsvError(`Linha ${i + 1} inválida: esperadas 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta). Delimitador detectado: "${delimiter}".`);
           return;
         }
-        rows.push({
-          nome: cols[0],
-          fotoUrl: cols[1],
-          precoUnitario: cols[2],
-          linkSite: cols[3],
-          descricaoCurta: cols[4],
-        });
+        rows.push(normalizeRow(cols));
+      }
+
+      if (rows.length === 0) {
+        setCsvError('Arquivo sem linhas válidas para importação.');
+        return;
       }
       setCsvPreview(rows);
     };
@@ -516,17 +584,22 @@ export default function ProdutosModelosAdminPage() {
       {/* IMPORT MODE */}
       {mode === 'import' && (
         <div className={styles.card}>
-          <h2 className={styles.cardTitle}>Importar Produtos via CSV</h2>
+          <h2 className={styles.cardTitle}>Importar Produtos via CSV/XLS/XLSX</h2>
           <p className={styles.importHelper}>
-            O arquivo CSV deve ter cabeçalho e as colunas na ordem:{' '}
+            O arquivo deve ter cabeçalho e as colunas na ordem:{' '}
             <code>nome, fotoUrl, precoUnitario, linkSite, descricaoCurta</code>
           </p>
+          <p className={styles.importHelper}>
+            <a href="/templates/produtos-modelos-exemplo.xlsx" download className={styles.link}>
+              Baixar arquivo de exemplo (.xlsx)
+            </a>
+          </p>
           <div className={styles.field} style={{ marginTop: '1rem' }}>
-            <label className={styles.label} htmlFor="csvFile">Selecionar arquivo CSV</label>
+            <label className={styles.label} htmlFor="csvFile">Selecionar arquivo</label>
             <input
               id="csvFile"
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,text/csv,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className={styles.fileInput}
               ref={fileInputRef}
               onChange={handleCsvFile}
