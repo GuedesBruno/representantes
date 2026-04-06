@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    console.error('Falha ao criar sessão:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

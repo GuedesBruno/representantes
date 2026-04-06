@@ -4,6 +4,43 @@ import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
+function parseServiceAccount(rawValue: string) {
+  const candidates: string[] = [];
+  const raw = rawValue.trim();
+
+  candidates.push(raw);
+
+  if (
+    (raw.startsWith('"') && raw.endsWith('"')) ||
+    (raw.startsWith("'") && raw.endsWith("'"))
+  ) {
+    candidates.push(raw.slice(1, -1));
+  }
+
+  if (raw.startsWith('n{')) {
+    candidates.push(raw.slice(1));
+  }
+
+  try {
+    const decoded = Buffer.from(raw, 'base64').toString('utf8').trim();
+    if (decoded.startsWith('{') && decoded.endsWith('}')) {
+      candidates.push(decoded);
+    }
+  } catch {
+    // ignore base64 parse errors
+  }
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // try next candidate
+    }
+  }
+
+  throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY não contém JSON válido.');
+}
+
 function getServiceAccount() {
   const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
@@ -11,11 +48,7 @@ function getServiceAccount() {
     throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY não definida.');
   }
 
-  try {
-    return JSON.parse(rawServiceAccount);
-  } catch {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY não contém JSON válido.');
-  }
+  return parseServiceAccount(rawServiceAccount);
 }
 
 function getAdminApp() {
