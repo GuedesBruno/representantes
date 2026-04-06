@@ -65,6 +65,7 @@ export default function AdminUsuariosPage() {
 
   const [users, setUsers] = useState<UserDoc[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
 
   const [selected, setSelected] = useState<UserDoc | null>(null);
@@ -80,12 +81,20 @@ export default function AdminUsuariosPage() {
   }, [loading, isAdmin, router]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'users'), (snap) => {
-      const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<UserDoc, 'id'>) }));
-      rows.sort((a, b) => (a.email || '').localeCompare(b.email || ''));
-      setUsers(rows);
-      setLoadingData(false);
-    });
+    const unsub = onSnapshot(
+      collection(db, 'users'),
+      (snap) => {
+        const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<UserDoc, 'id'>) }));
+        rows.sort((a, b) => (a.email || '').localeCompare(b.email || ''));
+        setUsers(rows);
+        setLoadError('');
+        setLoadingData(false);
+      },
+      () => {
+        setLoadError('Não foi possível carregar usuários. Verifique permissões e regras do Firestore.');
+        setLoadingData(false);
+      }
+    );
 
     return unsub;
   }, []);
@@ -204,6 +213,10 @@ export default function AdminUsuariosPage() {
   }
 
   if (!isAdmin) return null;
+
+  if (loadError) {
+    return <div className={styles.error}>{loadError}</div>;
+  }
 
   return (
     <div className={styles.page}>

@@ -75,6 +75,7 @@ export default function ProdutosModelosAdminPage() {
   const router = useRouter();
   const [produtos, setProdutos] = useState<ProdutoModelo[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [mode, setMode] = useState<Mode>('list');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -123,10 +124,18 @@ export default function ProdutosModelosAdminPage() {
 
   useEffect(() => {
     const q = query(collection(db, 'produtos_modelos'), orderBy('nome'));
-    const unsub = onSnapshot(q, (snap) => {
-      setProdutos(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdutoModelo)));
-      setLoadingData(false);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setProdutos(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdutoModelo)));
+        setLoadError('');
+        setLoadingData(false);
+      },
+      () => {
+        setLoadError('Não foi possível carregar os produtos. Verifique permissões e regras do Firestore.');
+        setLoadingData(false);
+      }
+    );
     return unsub;
   }, []);
 
@@ -284,6 +293,10 @@ export default function ProdutosModelosAdminPage() {
   }
 
   if (!isAdmin) return null;
+
+  if (loadError) {
+    return <div className={styles.errorMsg}>{loadError}</div>;
+  }
 
   return (
     <div className={styles.page}>

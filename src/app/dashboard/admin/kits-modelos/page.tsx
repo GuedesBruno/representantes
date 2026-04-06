@@ -55,6 +55,7 @@ export default function KitsModelosAdminPage() {
   const [produtos, setProdutos] = useState<ProdutoModelo[]>([]);
   const [kits, setKits] = useState<KitModelo[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   // view: 'list' | 'form'
   const [mode, setMode] = useState<'list' | 'form'>('list');
@@ -86,6 +87,12 @@ export default function KitsModelosAdminPage() {
       query(collection(db, 'produtos_modelos'), orderBy('nome')),
       (snap) => {
         setProdutos(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdutoModelo)));
+        setLoadError('');
+        resolvedProdutos = true;
+        checkDone();
+      },
+      () => {
+        setLoadError('Não foi possível carregar produtos. Verifique permissões e regras do Firestore.');
         resolvedProdutos = true;
         checkDone();
       }
@@ -95,6 +102,12 @@ export default function KitsModelosAdminPage() {
       query(collection(db, 'kits_modelos'), orderBy('nome')),
       (snap) => {
         setKits(snap.docs.map((d) => ({ id: d.id, ...d.data() } as KitModelo)));
+        setLoadError('');
+        resolvedKits = true;
+        checkDone();
+      },
+      () => {
+        setLoadError('Não foi possível carregar kits. Verifique permissões e regras do Firestore.');
         resolvedKits = true;
         checkDone();
       }
@@ -189,6 +202,9 @@ export default function KitsModelosAdminPage() {
     return <div className={styles.loading}>Carregando…</div>;
   }
   if (!isAdmin) return null;
+  if (loadError) {
+    return <div className={styles.errorMsg}>{loadError}</div>;
+  }
 
   const filteredProdutos = produtos.filter((p) =>
     p.nome.toLowerCase().includes(pickerSearch.toLowerCase())
