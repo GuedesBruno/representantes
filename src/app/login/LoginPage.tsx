@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import styles from './login.module.css';
 
 function LoginForm() {
+  const EMAIL_DRAFT_KEY = 'login_email_draft';
+  const PASSWORD_DRAFT_KEY = 'login_password_draft';
   const { login, resetPassword, loginWithGoogle } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -21,6 +23,18 @@ function LoginForm() {
   const emailId = useId();
   const passwordId = useId();
   const errorId = useId();
+
+  useEffect(() => {
+    try {
+      const emailDraft = sessionStorage.getItem(EMAIL_DRAFT_KEY);
+      const passwordDraft = sessionStorage.getItem(PASSWORD_DRAFT_KEY);
+
+      if (emailDraft) setEmail(emailDraft);
+      if (passwordDraft) setPassword(passwordDraft);
+    } catch {
+      // Ignore storage access errors in restricted browser modes.
+    }
+  }, []);
 
   const getErrorMessage = (code: string): string => {
     const messages: Record<string, string> = {
@@ -57,6 +71,12 @@ function LoginForm() {
     setLoading(true);
     try {
       await login(email.trim(), password);
+      try {
+        sessionStorage.removeItem(EMAIL_DRAFT_KEY);
+        sessionStorage.removeItem(PASSWORD_DRAFT_KEY);
+      } catch {
+        // Ignore storage cleanup errors.
+      }
       const from = searchParams.get('from') || '/dashboard/folhetos';
       router.push(from);
     } catch (err: unknown) {
@@ -191,9 +211,18 @@ function LoginForm() {
                   type="email"
                   className={styles.input}
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    setEmail(nextValue);
+                    try {
+                      sessionStorage.setItem(EMAIL_DRAFT_KEY, nextValue);
+                    } catch {
+                      // Ignore storage write errors.
+                    }
+                  }}
                   placeholder="seu@tecassistiva.com.br"
-                  autoComplete="email"
+                  autoComplete="username"
+                  name="email"
                   required
                   aria-required="true"
                   disabled={loading}
@@ -209,9 +238,18 @@ function LoginForm() {
                   type="password"
                   className={styles.input}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    setPassword(nextValue);
+                    try {
+                      sessionStorage.setItem(PASSWORD_DRAFT_KEY, nextValue);
+                    } catch {
+                      // Ignore storage write errors.
+                    }
+                  }}
                   placeholder="Digite sua senha"
                   autoComplete="current-password"
+                  name="password"
                   required
                   aria-required="true"
                   disabled={loading}

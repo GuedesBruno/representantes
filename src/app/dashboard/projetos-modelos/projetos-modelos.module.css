@@ -130,6 +130,53 @@
     color: var(--color-gray-600);
     font-size: clamp(0.88rem, 1.05vw, 1rem);
     line-height: 1.2;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 8px;
+    text-align: left;
+    cursor: default;
+  }
+
+  .valueCardInputLabel {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    color: var(--color-gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .valueCardInputRow {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius-md);
+    background: var(--color-white);
+  }
+
+  .valueCardCurrency {
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    color: var(--color-gray-600);
+  }
+
+  .valueCardInput {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    color: var(--color-gray-800);
+  }
+
+  .valueCardInput::placeholder {
+    color: var(--color-gray-500);
+    font-weight: 500;
   }
 
   .noCategoryData {
@@ -282,7 +329,7 @@
       max-width: 260px;
       display: flex;
       flex-direction: column;
-      gap: var(--space-4);
+      gap: 10px;
     }
 
     .investmentLeftCard {
@@ -293,8 +340,23 @@
       padding: var(--space-3);
       display: flex;
       flex-direction: column;
+      align-items: center;
       gap: var(--space-1);
       min-height: 158px;
+      text-align: center;
+    }
+
+    .investmentCardPlus {
+      width: 100%;
+      text-align: center;
+      font-size: clamp(2.1rem, 3vw, 3rem);
+      font-weight: 900;
+      color: var(--color-primary);
+      line-height: 1;
+      margin: -12px 0 -10px;
+      position: relative;
+      z-index: 2;
+      pointer-events: none;
     }
 
     .investmentLeftCardTitle {
@@ -311,6 +373,7 @@
     letter-spacing: -0.02em;
     line-height: 1.12;
     overflow-wrap: anywhere;
+    text-align: center;
   }
 
   .investmentCardLabel {
@@ -349,7 +412,7 @@
     display: grid;
     grid-template-rows: auto auto 1fr;
     align-content: start;
-    gap: 0.72rem;
+    gap: 0.2rem;
     cursor: pointer;
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
   }
@@ -433,6 +496,15 @@
       color: var(--color-gray-700);
       line-height: 1.45;
       max-width: 62ch;
+      margin-top: -18px;
+    }
+
+    .investmentBandDescription {
+      font-size: clamp(1.18rem, 1.3vw, 1.34rem);
+      color: var(--color-gray-500);
+      line-height: 1.5;
+      max-width: 66ch;
+      margin-top: -4px;
     }
 
     .investmentBandRemainder {
@@ -489,6 +561,11 @@
     font-size: 1.76rem;
     line-height: 1.35;
   }
+
+  .investmentBandDescription {
+    font-size: 1.08rem;
+    line-height: 1.35;
+  }
 }
 
     .investmentSelectedLevel {
@@ -496,6 +573,7 @@
       font-size: var(--font-size-lg);
       font-weight: 800;
       color: var(--color-gray-900);
+      text-align: center;
     }
 
     .investmentMountCount {
@@ -504,6 +582,7 @@
       font-weight: 900;
       color: var(--color-primary);
       line-height: 1.1;
+      text-align: center;
     }
 
     .investmentSelectedName {
@@ -518,13 +597,14 @@
       font-size: clamp(1.6rem, 3vw, 2.2rem);
       font-weight: 900;
       color: var(--color-primary);
+      text-align: center;
     }
 
     .investmentSelectedPriceBlock {
       margin-top: auto;
       display: flex;
       flex-direction: column;
-      align-items: stretch;
+      align-items: center;
       gap: 1px;
       width: 100%;
     }
@@ -539,13 +619,22 @@
     }
 
     .investmentSelectedPriceTop {
-      text-align: left;
+      text-align: center;
       margin-bottom: -2px;
     }
 
     .investmentSelectedPriceBottom {
-      text-align: right;
+      text-align: center;
       margin-top: -2px;
+    }
+
+    .investmentExtraLabel {
+      font-size: var(--font-size-xs);
+      font-weight: 700;
+      color: var(--color-gray-500);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      text-align: center;
     }
 
     .investmentDetailWrap {
@@ -567,6 +656,46 @@
     .investmentDetailBody {
       flex: 1;
       overflow-y: auto;
+    }
+
+    .investmentKitColumns {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: var(--space-3);
+      padding: var(--space-3);
+      align-items: start;
+    }
+
+    .investmentKitColumn {
+      border: 1px solid var(--color-gray-200);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: var(--color-white);
+      min-width: 0;
+    }
+
+    .investmentKitColumnHeader {
+      padding: 0.8rem 1rem;
+      border-bottom: 1px solid var(--color-gray-200);
+      background: var(--color-gray-50);
+    }
+
+    .investmentKitColumnTitle {
+      margin: 0;
+      font-size: var(--font-size-sm);
+      font-weight: 800;
+      color: var(--color-gray-900);
+      line-height: 1.35;
+    }
+
+    .investmentKitColumnMeta {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: var(--font-size-xs);
+      font-weight: 700;
+      color: var(--color-gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
 
     .investmentDetailRow {
@@ -609,7 +738,7 @@
     }
 
     .investmentDetailTotal {
-      font-size: var(--font-size-2xl);
+      font-size: clamp(2.4rem, 3.4vw, 3.2rem);
       color: var(--color-primary);
       font-weight: 900;
     }
@@ -860,7 +989,6 @@
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
-  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1013,6 +1141,32 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.detailModeToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-gray-100);
+}
+
+.detailModeButton {
+  border: none;
+  background: transparent;
+  color: var(--color-gray-600);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.detailModeButtonActive {
+  background: var(--color-white);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-xs);
 }
 
 .panelHeaderBackBtn {
@@ -1309,7 +1463,6 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  line-clamp: 2;
   overflow: hidden;
 }
 
@@ -1507,6 +1660,14 @@
   border-radius: var(--radius-lg);
   background: #000;
   box-shadow: var(--shadow-2xl);
+}
+
+.videoFallbackLink {
+  display: inline-block;
+  margin-top: 10px;
+  color: #d6e7ff;
+  font-size: var(--font-size-sm);
+  text-decoration: underline;
 }
 
 .imageLightboxImg {
