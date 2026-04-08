@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import { collection, doc, getDoc, onSnapshot, query } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import type { ProdutoModelo } from '../../admin/produtos-modelos/page';
 import type { KitModelo, KitItem } from '../../admin/kits-modelos/page';
@@ -28,12 +29,17 @@ function Tooltip({ text }: { text: string }) {
 export default function KitDetailPage({ params }: { params: Promise<{ kitId: string }> }) {
   const { kitId } = use(params);
   const router = useRouter();
+  const { user } = useAuth();
 
   const [kit, setKit] = useState<KitModelo | null>(null);
   const [produtos, setProdutos] = useState<ProdutoModelo[]>([]);
   const [itens, setItens] = useState<EditableItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  const [quoteError, setQuoteError] = useState('');
+  const [quoteSuccess, setQuoteSuccess] = useState('');
+  const [sending, setSending] = useState(false);
 
   // Load kit once
   useEffect(() => {
@@ -73,6 +79,54 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
     setItens(kit.itens.map((i) => ({ ...i })));
   }
 
+  async function handleRequestQuote() {
+    setQuoteError('');
+    setQuoteSuccess('');
+    setSending(true);
+
+    try {
+      if (!user || !user.email) {
+        throw new Error('Usuário não autenticado.');
+      }
+
+      const idToken = await user.getIdToken();
+
+      const response = await fetch('/api/projects/request-quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          kitId: kit?.id,
+          kitNome: kit?.nome,
+          itens: itens.map((i) => ({
+            produtoId: i.produtoId,
+            nomeProduto: i.nomeProduto,
+            quantidade: i.quantidade,
+            precoUnitario: produtos.find((p) => p.id === i.produtoId)?.precoUnitario || 0,
+          })),
+          totalGeral,
+          representanteEmail: user.email,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Erro ao solicitar cotação.');
+      }
+
+      setQuoteSuccess('Cotação solicitada com sucesso! Em breve o vendedor entrará em contato.');
+      setTimeout(() => {
+        router.push('/dashboard/projetos-modelos');
+      }, 2000);
+    } catch (err) {
+      setQuoteError(err instanceof Error ? err.message : 'Erro ao solicitar cotação.');
+    } finally {
+      setSending(false);
+    }
+  }
+
   const totalGeral = itens.reduce((acc, item) => {
     const p = produtos.find((x) => x.id === item.produtoId);
     return acc + (p ? p.precoUnitario * item.quantidade : 0);
@@ -110,13 +164,44 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
         <div className={styles.totalBox} aria-live="polite">
           <span className={styles.totalLabel}>Valor Total do Projeto</span>
           <span className={styles.totalValue}>{formatCurrency(totalGeral)}</span>
-          <button
-            type="button"
-            className={styles.resetBtn}
-            onClick={resetQuantidades}
-          >
-            Restaurar quantidades
-          </button>
+          <div className={styles.headerActions}>
+            {!isCustomizing ? (
+              <>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={() => setIsCustomizing(true)}
+                >
+                  ✏️ Personalizar Projeto
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnPrimary}
+                  onClick={handleRequestQuote}
+                  disabled={sending}
+                >
+                  {sending ? 'Enviando...' : '📧 Solicitar Cotação'}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={resetQuantidades}
+                >
+                  ↺ Restaurar
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={() => setIsCustomizing(false)}
+                >
+                  ✓ Confirmado
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -128,7 +213,7 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
               <tr>
                 <th className={styles.th}>Produto</th>
                 <th className={styles.th} style={{ width: '100px', textAlign: 'center' }}>Quantidade</th>
-                <th className={styles.th} style={{ width: '80px', textAlign: 'center' }}>Link</th>
+                <th className={styles.th} style={{ width: '200px', textAlign: 'center' }}>Links</th>
               </tr>
             </thead>
             <tbody>
@@ -158,38 +243,49 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
                       </div>
                     </td>
 
-                    {/* Editable quantity */}
+                    {/* Quantity - read-only or editable */}
                     <td className={styles.td} style={{ textAlign: 'center' }}>
-                      <input
-                        type="number"
-                        min={1}
-                        value={item.quantidade}
-                        onChange={(e) => setQuantidade(item.produtoId, e.target.value)}
-                        className={styles.qtyInput}
-                        aria-label={`Quantidade de ${item.nomeProduto}`}
-                      />
+                      {isCustomizing ? (
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.quantidade}
+                          onChange={(e) => setQuantidade(item.produtoId, e.target.value)}
+                          className={styles.qtyInput}
+                          aria-label={`Quantidade de ${item.nomeProduto}`}
+                        />
+                      ) : (
+                        <span className={styles.qtyReadonly}>{item.quantidade}</span>
+                      )}
                     </td>
 
-                    {/* External link */}
+                    {/* Product links - catalog, video, website */}
                     <td className={styles.td} style={{ textAlign: 'center' }}>
-                      {produto?.linkSite ? (
-                        <a
-                          href={produto.linkSite}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={styles.extLink}
-                          aria-label={`Ver ${item.nomeProduto} no site`}
-                          title="Ver no site"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <polyline points="15 3 21 3 21 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </a>
-                      ) : (
-                        <span className={styles.noLink}>—</span>
-                      )}
+                      <div className={styles.productLinksContainer}>
+                        {produto?.fotoUrl && (
+                          <a
+                            href={produto.fotoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.productLink}
+                            title="Ver catálogo"
+                          >
+                            📄 Catálogo
+                          </a>
+                        )}
+                        <span className={styles.productLink} title="Vídeo em breve">🎥 Vídeo</span>
+                        {produto?.linkSite && (
+                          <a
+                            href={produto.linkSite}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.productLink}
+                            title="Ir para website"
+                          >
+                            🌐 Site
+                          </a>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -204,6 +300,10 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
           <span className={styles.totalFooterValue}>{formatCurrency(totalGeral)}</span>
         </div>
       </div>
+
+      {/* Messages */}
+      {quoteError && <div className={styles.errorMsg}>{quoteError}</div>}
+      {quoteSuccess && <div className={styles.successMsg}>{quoteSuccess}</div>}
 
       <p className={styles.privacyNote}>
         * Os preços unitários dos produtos não são exibidos individualmente.

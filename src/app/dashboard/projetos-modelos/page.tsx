@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
-import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
-import { CATEGORIAS_KIT } from '@/lib/constants';
 import type { ProdutoModelo } from '../admin/produtos-modelos/page';
-import type { KitModelo } from '../admin/kits-modelos/page';
+import type { KitItem, KitModelo } from '../admin/kits-modelos/page';
 import styles from './projetos-modelos.module.css';
 
 function formatCurrency(value: number) {
@@ -20,45 +20,748 @@ function calcTotal(kit: KitModelo, produtos: ProdutoModelo[]): number {
   }, 0);
 }
 
-function KitCard({ kit, total, orcamento }: { kit: KitModelo; total: number; orcamento: number }) {
-  const quantidadeKits = orcamento > 0 && total > 0 ? Math.floor(orcamento / total) : null;
+type EditableKitItem = KitItem;
 
+function SvgIcon({ type, width = 16, height = 16 }: { type: 'website' | 'catalog' | 'video' | 'info'; width?: number; height?: number }) {
+  if (type === 'website') {
+    return (
+      <svg width={width} height={height} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+        <path d="M2 12h20M12 2a8 8 0 0 1 0 16 8 8 0 0 1 0 -16" stroke="currentColor" strokeWidth="2" />
+        <path d="M9 2C6 4.5 5 8 5 12s1 7.5 4 10M15 2c3 2.5 4 6 4 10s-1 7.5 -4 10" stroke="currentColor" strokeWidth="2" />
+      </svg>
+    );
+  }
+  if (type === 'catalog') {
+    return (
+      <svg width={width} height={height} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2" />
+        <path d="M9 9h6M9 15h6M9 12h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (type === 'video') {
+    return (
+      <svg width={width} height={height} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="2" y="2" width="20" height="20" rx="2.18" stroke="currentColor" strokeWidth="2" />
+        <path d="M7 12l5-3v6l-5 -3Z" fill="currentColor" />
+        <path d="M14 12l5-3v6l-5 -3Z" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (type === 'info') {
+    return (
+      <svg width={width} height={height} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+        <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return null;
+}
+
+function getVideoEmbedUrl(rawUrl: string): string | null {
+  const input = rawUrl.trim();
+  if (!input) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(input);
+  } catch {
+    return null;
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const path = parsed.pathname;
+
+  if (host.includes('youtube.com') || host.includes('youtu.be')) {
+    let videoId = '';
+
+    if (host.includes('youtu.be')) {
+      videoId = path.split('/').filter(Boolean)[0] ?? '';
+    } else if (path.startsWith('/shorts/')) {
+      videoId = path.split('/')[2] ?? '';
+    } else if (path.startsWith('/embed/')) {
+      videoId = path.split('/')[2] ?? '';
+    } else {
+      videoId = parsed.searchParams.get('v') ?? '';
+    }
+
+    if (!videoId) return null;
+    return `https://www.youtube.com/embed/${videoId}`;
+  }
+
+  if (host.includes('vimeo.com')) {
+    const segments = path.split('/').filter(Boolean);
+    const numeric = [...segments].reverse().find((segment) => /^\d+$/.test(segment));
+    if (!numeric) return null;
+    return `https://player.vimeo.com/video/${numeric}`;
+  }
+
+  return null;
+}
+
+function VideoModal({ embedUrl, title, onClose }: { embedUrl: string; title: string; onClose: () => void }) {
   return (
-    <Link href={`/dashboard/projetos-modelos/${kit.id}`} className={styles.kitCard} aria-label={`Ver kit ${kit.nome}`}>
-      <div className={styles.kitCardTop}>
-        <span className={styles.kitCategory}>{kit.categoria}</span>
-        <span className={styles.kitTotal}>{formatCurrency(total)}</span>
+    <div className={styles.imageLightbox} onClick={onClose}>
+      <div className={`${styles.imageLightboxContent} ${styles.videoLightboxContent}`} onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          className={styles.imageLightboxClose}
+          onClick={onClose}
+          aria-label="Fechar vídeo"
+        >
+          ×
+        </button>
+        <iframe
+          src={embedUrl}
+          title={title}
+          className={styles.videoLightboxFrame}
+          allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+          allowFullScreen
+        />
       </div>
-      <h3 className={styles.kitName}>{kit.nome}</h3>
-      {kit.descricao && <p className={styles.kitDesc}>{kit.descricao}</p>}
-      <div className={styles.kitMeta}>
-        <span className={styles.kitCount}>{kit.itens.length} produto(s)</span>
-        {quantidadeKits !== null && quantidadeKits > 0 && (
-          <span className={styles.kitFit}>
-            ✓ {quantidadeKits}× no orçamento
-          </span>
-        )}
-        {quantidadeKits === 0 && (
-          <span className={styles.kitNoFit}>Orçamento insuficiente</span>
-        )}
-      </div>
-    </Link>
+    </div>
   );
 }
 
-export default function ProjetosModelosPage() {
+function KitDetailModal({
+  kit,
+  produtos,
+  user,
+  onClose,
+}: {
+  kit: KitModelo;
+  produtos: ProdutoModelo[];
+  user: any;
+  onClose: () => void;
+}) {
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  const [itens, setItens] = useState<EditableKitItem[]>(kit.itens.map((i) => ({ ...i })));
+  const [requestError, setRequestError] = useState('');
+  const [requestSuccess, setRequestSuccess] = useState('');
+  const [requesting, setRequesting] = useState(false);
+  const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
+  const [videoModal, setVideoModal] = useState<{ embedUrl: string; title: string } | null>(null);
+
+  function setQuantidade(produtoId: string, val: string) {
+    const n = Math.max(1, parseInt(val, 10) || 1);
+    setItens((prev) =>
+      prev.map((i) => i.produtoId === produtoId ? { ...i, quantidade: n } : i)
+    );
+  }
+
+  function resetQuantidades() {
+    setItens(kit.itens.map((i) => ({ ...i })));
+  }
+
+  const totalGeral = itens.reduce((acc, item) => {
+    const p = produtos.find((x) => x.id === item.produtoId);
+    return acc + (p ? p.precoUnitario * item.quantidade : 0);
+  }, 0);
+
+  async function handleRequestQuote() {
+    setRequestError('');
+    setRequestSuccess('');
+    setRequesting(true);
+
+    try {
+      if (!user || !user.email) {
+        throw new Error('Usuário não autenticado.');
+      }
+
+      const idToken = await user.getIdToken();
+
+      const response = await fetch('/api/projects/request-quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          kitId: kit.id,
+          kitNome: kit.nome,
+          itens: itens.map((i) => ({
+            produtoId: i.produtoId,
+            nomeProduto: i.nomeProduto,
+            quantidade: i.quantidade,
+            precoUnitario: produtos.find((p) => p.id === i.produtoId)?.precoUnitario || 0,
+          })),
+          totalGeral,
+          representanteEmail: user.email,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Erro ao solicitar cotação.');
+      }
+
+      setRequestSuccess('Cotação solicitada com sucesso! Em breve o vendedor entrará em contato.');
+      setTimeout(() => onClose(), 2000);
+    } catch (err) {
+      setRequestError(err instanceof Error ? err.message : 'Erro ao solicitar cotação.');
+    } finally {
+      setRequesting(false);
+    }
+  }
+
+  return (
+    <div className={styles.detailPanelOverlay} onClick={onClose}>
+      <div className={styles.detailContainer} onClick={(e) => e.stopPropagation()}>
+
+        <div className={styles.detailCardSide}>
+          <div className={`${styles.kitCard} ${styles.kitCardPreview}`}>
+            <h3 className={styles.openedCardTitle}>{kit.nome}</h3>
+            <div className={styles.openedCardMeta}>
+              <span className={styles.openedCardCount}>{kit.itens.length} produto(s)</span>
+              <span className={styles.openedCardCategory}>{kit.categoria}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.detailTreeSide}>
+          <div className={styles.panelHeader}>
+            <h4 className={styles.tableTitle}>Produtos do projeto</h4>
+            <button
+              type="button"
+              className={styles.closeBtn}
+              onClick={onClose}
+              aria-label="Fechar painel"
+            >
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          <div className={styles.panelBody}>
+            <div className={styles.productsTree}>
+            <ul className={`${styles.treeList} ${itens.length >= 8 ? styles.treeListTwoColumns : ''}`}>
+              {itens.map((item) => {
+                const produto = produtos.find((p) => p.id === item.produtoId);
+                const videoEmbedUrl = produto?.videoUrl ? getVideoEmbedUrl(produto.videoUrl) : null;
+                return (
+                  <li key={item.produtoId} className={styles.treeItem}>
+                    <div className={styles.treeItemWrapper}>
+                      {/* Left: Image with Quantity Badge */}
+                      <div className={styles.imageColumnContainer}>
+                        {produto?.fotoUrl && (
+                          <button
+                            type="button"
+                            className={styles.imageExpandBtn}
+                            onClick={() => setExpandedImage({ src: produto.fotoUrl, alt: item.nomeProduto })}
+                            title="Expandir imagem"
+                          >
+                            <img
+                              src={produto.fotoUrl}
+                              alt={item.nomeProduto}
+                              className={styles.productThumbnail}
+                            />
+                          </button>
+                        )}
+                        {/* Quantity Badge */}
+                        <div className={styles.quantityBadge}>
+                          {item.quantidade}x
+                        </div>
+                      </div>
+
+                      {/* Right: Name and Buttons */}
+                      <div className={styles.infoColumn}>
+                        {/* Line 1: Name */}
+                        <div className={styles.nameQtyRow}>
+                          <span className={styles.productTreeName}>{item.nomeProduto}</span>
+                        </div>
+
+                        {/* Line 2: Buttons */}
+                        <div className={styles.productLinks}>
+                          {produto?.linkSite && (
+                            <a
+                              href={produto.linkSite}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={styles.productLinkIcon}
+                              title="Ir para website"
+                            >
+                              <SvgIcon type="website" width={14} height={14} />
+                              Website
+                            </a>
+                          )}
+                          {produto?.fotoUrl && (
+                            <a
+                              href={produto.fotoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={styles.productLinkIcon}
+                              title="Ver catálogo"
+                            >
+                              <SvgIcon type="catalog" width={14} height={14} />
+                              Catálogo
+                            </a>
+                          )}
+                          {produto?.videoUrl && videoEmbedUrl && (
+                            <button
+                              type="button"
+                              className={styles.productLinkIcon}
+                              title="Abrir vídeo"
+                              onClick={() => setVideoModal({ embedUrl: videoEmbedUrl, title: item.nomeProduto })}
+                            >
+                              <SvgIcon type="video" width={14} height={14} />
+                              Vídeo
+                            </button>
+                          )}
+                          {produto?.videoUrl && !videoEmbedUrl && (
+                            <a
+                              href={produto.videoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={styles.productLinkIcon}
+                              title="Abrir vídeo em nova aba"
+                            >
+                              <SvgIcon type="video" width={14} height={14} />
+                              Vídeo
+                            </a>
+                          )}
+                          {produto?.descricaoCurta && (
+                            <div className={styles.infoIconContainer} title="Descrição">
+                              <SvgIcon type="info" width={22} height={22} />
+                              <div className={styles.infoTooltip}>
+                                {produto.descricaoCurta}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Edit Quantity Mode */}
+                    {isCustomizing && (
+                      <div className={styles.productEditRow}>
+                        <label className={styles.qtyEditLabel}>Quantidade:</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantidade}
+                          onChange={(e) => setQuantidade(item.produtoId, e.target.value)}
+                          className={styles.productQtyInput}
+                          aria-label={`Quantidade de ${item.nomeProduto}`}
+                        />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            </div>
+          </div>
+
+          <div className={styles.panelFooter}>
+            <div className={styles.footerContent}>
+              {requestError && <div className={styles.errorMsg}>{requestError}</div>}
+              {requestSuccess && <div className={styles.successMsg}>{requestSuccess}</div>}
+
+              <div className={styles.footerBar}>
+                <div className={styles.footerActions}>
+                {!isCustomizing ? (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.btnSecondary}
+                      onClick={() => setIsCustomizing(true)}
+                    >
+                      Personalizar Projeto
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.btnPrimary}
+                      onClick={handleRequestQuote}
+                      disabled={requesting}
+                    >
+                      {requesting ? 'Enviando...' : 'Solicitar Orçamento'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.btnSecondary}
+                      onClick={resetQuantidades}
+                    >
+                      Restaurar
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.btnSecondary}
+                      onClick={() => setIsCustomizing(false)}
+                    >
+                      Confirmado
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.btnPrimary}
+                      onClick={handleRequestQuote}
+                      disabled={requesting}
+                    >
+                      {requesting ? 'Enviando...' : 'Solicitar Orçamento'}
+                    </button>
+                  </>
+                )}
+                </div>
+
+                <div className={styles.footerTotal}>
+                  <span className={styles.totalLabelFooter}>Valor Total do Projeto:</span>
+                  <span className={styles.totalValueFooter}>{formatCurrency(totalGeral)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {expandedImage && (
+        <div className={styles.imageLightbox} onClick={() => setExpandedImage(null)}>
+          <div className={styles.imageLightboxContent} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className={styles.imageLightboxClose}
+              onClick={() => setExpandedImage(null)}
+              aria-label="Fechar imagem ampliada"
+            >
+              ×
+            </button>
+            <img src={expandedImage.src} alt={expandedImage.alt} className={styles.imageLightboxImg} />
+          </div>
+        </div>
+      )}
+
+      {videoModal && (
+        <VideoModal
+          embedUrl={videoModal.embedUrl}
+          title={`Vídeo do produto ${videoModal.title}`}
+          onClose={() => setVideoModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+type ViewMode = 'investimento' | 'estrutura';
+type FixedCategory = 'Educação' | 'Biblioteca';
+type KitLevel = 'basico' | 'intermediario' | 'modelo';
+
+type KitOption = {
+  level: KitLevel;
+  kit: KitModelo;
+  total: number;
+};
+
+const FIXED_CATEGORIES: FixedCategory[] = ['Educação', 'Biblioteca'];
+const LEVELS: KitLevel[] = ['basico', 'intermediario', 'modelo'];
+const LEVEL_LABELS: Record<KitLevel, string> = {
+  basico: 'Kit Inicial',
+  intermediario: 'Kit Intermediário',
+  modelo: 'Kit Completo',
+};
+const LEVEL_LABELS_PLURAL: Record<KitLevel, string> = {
+  basico: 'Kits Iniciais',
+  intermediario: 'Kits Intermediários',
+  modelo: 'Kits Completos',
+};
+const INVESTMENT_VALUES = [200000, 500000, 1000000, 3000000] as const;
+
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function getFixedCategory(categoria: string): FixedCategory | null {
+  const normalized = normalizeText(categoria);
+  if (normalized.includes('educ')) return 'Educação';
+  if (normalized.includes('bibli')) return 'Biblioteca';
+  return null;
+}
+
+function getKitLevel(nome: string): KitLevel | null {
+  const normalized = normalizeText(nome);
+  if (normalized.includes('inicial') || normalized.includes('basic')) return 'basico';
+  if (normalized.includes('intermed')) return 'intermediario';
+  if (normalized.includes('completo') || normalized.includes('modelo')) return 'modelo';
+  return null;
+}
+
+function calculateInvestmentPlan(budget: number, baseOption: KitOption, options: KitOption[]) {
+  const primaryUnits = Math.floor(budget / baseOption.total);
+  let remaining = budget - (primaryUnits * baseOption.total);
+  const extras: Array<{ option: KitOption; qty: number }> = [];
+
+  if (primaryUnits <= 0) {
+    return { primaryUnits: 0, remaining: budget, extras };
+  }
+
+  const sortedCandidates = [...options].sort((a, b) => b.total - a.total);
+  const minPrice = sortedCandidates.length > 0 ? sortedCandidates[sortedCandidates.length - 1].total : Infinity;
+  let guard = 0;
+
+  while (remaining >= minPrice && guard < 40) {
+    const next = sortedCandidates.find((candidate) => candidate.total <= remaining);
+    if (!next) break;
+    const existing = extras.find((x) => x.option.kit.id === next.kit.id);
+    if (existing) {
+      existing.qty += 1;
+    } else {
+      extras.push({ option: next, qty: 1 });
+    }
+    remaining -= next.total;
+    guard += 1;
+  }
+
+  return { primaryUnits, remaining, extras };
+}
+
+function buildPlanText(plan: ReturnType<typeof calculateInvestmentPlan>, baseOption: KitOption) {
+  if (plan.primaryUnits <= 0) {
+    return `Investimento insuficiente para 1 unidade de ${LEVEL_LABELS[baseOption.level]}.`;
+  }
+
+  const initial = `Você pode montar ${plan.primaryUnits} unidade(s) do ${LEVEL_LABELS[baseOption.level]}`;
+  if (plan.extras.length === 0) {
+    return `${initial}.`;
+  }
+
+  const extrasText = plan.extras
+    .map((extra) => `+ ${extra.qty} de ${LEVEL_LABELS[extra.option.level]}`)
+    .join(' ');
+
+  return `${initial} ${extrasText}.`;
+}
+
+function InvestmentKitDetail({
+  kit,
+  produtos,
+  onBack,
+  onOpenKitModal,
+}: {
+  kit: KitModelo;
+  produtos: ProdutoModelo[];
+  onBack: () => void;
+  onOpenKitModal: () => void;
+}) {
+  const total = calcTotal(kit, produtos);
+  const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
+  const [videoModal, setVideoModal] = useState<{ embedUrl: string; title: string } | null>(null);
+
+  return (
+    <div className={styles.investmentDetailWrap}>
+      <div className={styles.investmentDetailHeader}>
+        <h4 className={styles.tableTitle}>Detalhamento do Kit</h4>
+        <button type="button" className={styles.btnSecondary} onClick={onBack}>
+          Voltar para faixas
+        </button>
+      </div>
+
+      <div className={styles.investmentDetailBody}>
+        <ul className={styles.treeList}>
+          {kit.itens.map((item) => {
+            const produto = produtos.find((p) => p.id === item.produtoId);
+            const subtotal = (produto?.precoUnitario ?? 0) * item.quantidade;
+            const videoEmbedUrl = produto?.videoUrl ? getVideoEmbedUrl(produto.videoUrl) : null;
+
+            return (
+              <li key={item.produtoId} className={styles.treeItem}>
+                <div className={styles.treeItemWrapper}>
+                  <div className={styles.imageColumnContainer}>
+                    {produto?.fotoUrl && (
+                      <button
+                        type="button"
+                        className={styles.imageExpandBtn}
+                        onClick={() => setExpandedImage({ src: produto.fotoUrl, alt: item.nomeProduto })}
+                        title="Expandir imagem"
+                      >
+                        <img src={produto.fotoUrl} alt={item.nomeProduto} className={styles.productThumbnail} />
+                      </button>
+                    )}
+                    <div className={styles.quantityBadge}>{item.quantidade}x</div>
+                  </div>
+
+                  <div className={styles.infoColumn}>
+                    <div className={styles.nameQtyRow}>
+                      <span className={styles.productTreeName}>{item.nomeProduto}</span>
+                      <span className={styles.investmentDetailSubtotal}>{formatCurrency(subtotal)}</span>
+                    </div>
+
+                    <div className={styles.productLinks}>
+                      {produto?.linkSite && (
+                        <a
+                          href={produto.linkSite}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.productLinkIcon}
+                          title="Ir para website"
+                        >
+                          <SvgIcon type="website" width={14} height={14} />
+                          Website
+                        </a>
+                      )}
+                      {produto?.fotoUrl && (
+                        <a
+                          href={produto.fotoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.productLinkIcon}
+                          title="Ver catálogo"
+                        >
+                          <SvgIcon type="catalog" width={14} height={14} />
+                          Catálogo
+                        </a>
+                      )}
+                      {produto?.videoUrl && videoEmbedUrl && (
+                        <button
+                          type="button"
+                          className={styles.productLinkIcon}
+                          title="Abrir vídeo"
+                          onClick={() => setVideoModal({ embedUrl: videoEmbedUrl, title: item.nomeProduto })}
+                        >
+                          <SvgIcon type="video" width={14} height={14} />
+                          Vídeo
+                        </button>
+                      )}
+                      {produto?.videoUrl && !videoEmbedUrl && (
+                        <a
+                          href={produto.videoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.productLinkIcon}
+                          title="Abrir vídeo em nova aba"
+                        >
+                          <SvgIcon type="video" width={14} height={14} />
+                          Vídeo
+                        </a>
+                      )}
+                      {produto?.descricaoCurta && (
+                        <div className={styles.infoIconContainer} title="Descrição">
+                          <SvgIcon type="info" width={22} height={22} />
+                          <div className={styles.infoTooltip}>{produto.descricaoCurta}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div className={styles.investmentDetailFooter}>
+        <div className={styles.footerBar}>
+          <div className={styles.footerActions}>
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={onOpenKitModal}
+            >
+              Personalizar Kit
+            </button>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={onOpenKitModal}
+            >
+              Solicitar Orçamento
+            </button>
+          </div>
+
+          <div className={styles.investmentDetailFooterTotal}>
+            <span className={styles.totalLabelFooter}>Valor Total do Kit</span>
+            <strong className={styles.investmentDetailTotal}>{formatCurrency(total)}</strong>
+          </div>
+        </div>
+      </div>
+
+      {expandedImage && (
+        <div className={styles.imageLightbox} onClick={() => setExpandedImage(null)}>
+          <div className={styles.imageLightboxContent} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className={styles.imageLightboxClose}
+              onClick={() => setExpandedImage(null)}
+              aria-label="Fechar imagem ampliada"
+            >
+              ×
+            </button>
+            <img src={expandedImage.src} alt={expandedImage.alt} className={styles.imageLightboxImg} />
+          </div>
+        </div>
+      )}
+
+      {videoModal && (
+        <VideoModal
+          embedUrl={videoModal.embedUrl}
+          title={`Vídeo do produto ${videoModal.title}`}
+          onClose={() => setVideoModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ProjetosModelosPageContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
   const [produtos, setProdutos] = useState<ProdutoModelo[]>([]);
   const [kits, setKits] = useState<KitModelo[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  const [orcamento, setOrcamento] = useState('');
-  const [categoria, setCategoria] = useState('');
+  const [selectedInvestment, setSelectedInvestment] = useState<Record<FixedCategory, number | null>>({
+    Educação: null,
+    Biblioteca: null,
+  });
+  const [investmentPanel, setInvestmentPanel] = useState<{ category: FixedCategory; budget: number } | null>(null);
+  const [selectedBandKit, setSelectedBandKit] = useState<KitModelo | null>(null);
+  const [showCustomizeForm, setShowCustomizeForm] = useState(false);
+  const [customCategory, setCustomCategory] = useState<FixedCategory>('Educação');
+  const [customLevel, setCustomLevel] = useState<KitLevel>('basico');
+  const [customQuantity, setCustomQuantity] = useState(1);
+
+  const [modalKit, setModalKit] = useState<KitModelo | null>(null);
+  const mode: ViewMode = searchParams.get('modo') === 'estrutura' ? 'estrutura' : 'investimento';
+
+  const setModeInUrl = (nextMode: ViewMode) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('modo', nextMode);
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
+  useEffect(() => {
+    if (modalKit || investmentPanel) {
+      document.body.classList.add('sidebar-collapsed');
+    } else {
+      document.body.classList.remove('sidebar-collapsed');
+    }
+
+    return () => {
+      document.body.classList.remove('sidebar-collapsed');
+    };
+  }, [modalKit, investmentPanel]);
+
+  useEffect(() => {
+    if (mode !== 'investimento') {
+      setInvestmentPanel(null);
+      setSelectedBandKit(null);
+    }
+  }, [mode]);
 
   useEffect(() => {
     let resolvedP = false;
     let resolvedK = false;
 
-    const checkDone = () => { if (resolvedP && resolvedK) setLoadingData(false); };
+    const checkDone = () => {
+      if (resolvedP && resolvedK) setLoadingData(false);
+    };
 
     const unsubP = onSnapshot(
       query(collection(db, 'produtos_modelos'), orderBy('nome')),
@@ -78,41 +781,67 @@ export default function ProjetosModelosPage() {
       }
     );
 
-    return () => { unsubP(); unsubK(); };
+    return () => {
+      unsubP();
+      unsubK();
+    };
   }, []);
-
-  const orcamentoNum = useMemo(() => {
-    const raw = orcamento.replace(/\./g, '').replace(',', '.');
-    const n = parseFloat(raw);
-    return isNaN(n) ? 0 : n;
-  }, [orcamento]);
 
   const kitsComTotal = useMemo(() => {
     return kits.map((kit) => ({ kit, total: calcTotal(kit, produtos) }));
   }, [kits, produtos]);
 
-  const kitsFiltrados = useMemo(() => {
-    return kitsComTotal.filter(({ kit, total }) => {
-      if (categoria && kit.categoria !== categoria) return false;
-      if (orcamentoNum > 0 && total > orcamentoNum) return false;
-      return true;
-    });
-  }, [kitsComTotal, categoria, orcamentoNum]);
+  const kitsByCategory = useMemo(() => {
+    const structure: Record<FixedCategory, Partial<Record<KitLevel, KitOption>>> = {
+      Educação: {},
+      Biblioteca: {},
+    };
 
-  const kitsForaDoBudget = useMemo(() => {
-    if (orcamentoNum <= 0 || !categoria) return [];
-    return kitsComTotal.filter(({ kit, total }) => {
-      if (categoria && kit.categoria !== categoria) return false;
-      if (total <= orcamentoNum) return false;
-      return true;
-    });
-  }, [kitsComTotal, categoria, orcamentoNum]);
+    kitsComTotal.forEach(({ kit, total }) => {
+      if (total <= 0) return;
+      const fixedCategory = getFixedCategory(kit.categoria);
+      const level = getKitLevel(kit.nome);
+      if (!fixedCategory || !level) return;
 
-  function handleOrcamentoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    // Allow only digits, comma and dot
-    const val = e.target.value.replace(/[^\d.,]/g, '');
-    setOrcamento(val);
-  }
+      const current = structure[fixedCategory][level];
+      if (!current || total < current.total) {
+        structure[fixedCategory][level] = { level, kit, total };
+      }
+    });
+
+    return structure;
+  }, [kitsComTotal]);
+
+  const availableLevelsForCustom = useMemo(() => {
+    return LEVELS.filter((level) => Boolean(kitsByCategory[customCategory][level]));
+  }, [customCategory, kitsByCategory]);
+
+  useEffect(() => {
+    if (!availableLevelsForCustom.includes(customLevel)) {
+      setCustomLevel(availableLevelsForCustom[0] ?? 'basico');
+    }
+  }, [availableLevelsForCustom, customLevel]);
+
+  const customSelectedOption = kitsByCategory[customCategory][customLevel] ?? null;
+  const customTotal = customSelectedOption ? customSelectedOption.total * customQuantity : 0;
+
+  const activeInvestmentCategory = investmentPanel?.category ?? null;
+  const activeBudget = investmentPanel?.budget ?? null;
+  const activeOptions = LEVELS
+    .map((level) => (activeInvestmentCategory ? kitsByCategory[activeInvestmentCategory][level] : null))
+    .filter((opt): opt is KitOption => Boolean(opt));
+
+  const selectedBandTotal = selectedBandKit ? calcTotal(selectedBandKit, produtos) : 0;
+  const selectedBandUnits = selectedBandKit && activeBudget
+    ? Math.floor(activeBudget / Math.max(1, selectedBandTotal))
+    : 0;
+
+  const selectedBandLevel = selectedBandKit
+    ? getKitLevel(selectedBandKit.nome) ?? 'modelo'
+    : null;
+  const selectedBandLevelLabelDisplay = selectedBandLevel
+    ? (selectedBandUnits === 1 ? LEVEL_LABELS[selectedBandLevel] : LEVEL_LABELS_PLURAL[selectedBandLevel])
+    : '';
 
   if (loadingData) {
     return <div className={styles.loading}>Carregando kits…</div>;
@@ -120,102 +849,259 @@ export default function ProjetosModelosPage() {
 
   return (
     <div className={styles.page}>
-      {/* Filters */}
-      <div className={styles.filtersCard}>
-        <h2 className={styles.filtersTitle}>Filtrar Kits</h2>
-        <div className={styles.filtersRow}>
-          <div className={styles.filterField}>
-            <label className={styles.filterLabel} htmlFor="orcamento">Valor máximo do orçamento (R$)</label>
-            <input
-              id="orcamento"
-              type="text"
-              inputMode="decimal"
-              className={styles.filterInput}
-              placeholder="Ex: 800000"
-              value={orcamento}
-              onChange={handleOrcamentoChange}
-            />
-          </div>
-          <div className={styles.filterField}>
-            <label className={styles.filterLabel} htmlFor="categoria">Categoria</label>
-            <select
-              id="categoria"
-              className={styles.filterInput}
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
-            >
-              <option value="">Todas as categorias</option>
-              {CATEGORIAS_KIT.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-          {(orcamento || categoria) && (
-            <button
-              type="button"
-              className={styles.clearBtn}
-              onClick={() => { setOrcamento(''); setCategoria(''); }}
-            >
-              Limpar filtros
-            </button>
-          )}
-        </div>
-
-        {orcamentoNum > 0 && (
-          <p className={styles.filterSummary}>
-            Orçamento: <strong>{formatCurrency(orcamentoNum)}</strong>
-            {categoria && <> · Categoria: <strong>{categoria}</strong></>}
-            {' '}— {kitsFiltrados.length} kit(s) se encaixam
-          </p>
-        )}
-      </div>
-
-      {/* Results */}
       {kitsComTotal.length === 0 ? (
-        <div className={styles.empty}>
-          Nenhum kit cadastrado ainda. Aguarde o administrador configurar os kits modelos.
-        </div>
-      ) : kitsFiltrados.length === 0 && orcamentoNum > 0 ? (
-        <div className={styles.noResults}>
-          <p>Nenhum kit se encaixa no orçamento informado{categoria ? ` para a categoria "${categoria}"` : ''}.</p>
-          {kitsForaDoBudget.length > 0 && (
-            <p className={styles.suggestionText}>
-              O kit mais próximo nessa categoria custa{' '}
-              <strong>
-                {formatCurrency(Math.min(...kitsForaDoBudget.map((k) => k.total)))}
-              </strong>.
-            </p>
-          )}
-        </div>
+        <div className={styles.empty}>Nenhum kit cadastrado ainda. Aguarde o administrador configurar os kits modelos.</div>
       ) : (
-        <div className={styles.grid}>
-          {kitsFiltrados.map(({ kit, total }) => (
-            <KitCard
-              key={kit.id}
-              kit={kit}
-              total={total}
-              orcamento={orcamentoNum}
-            />
-          ))}
-        </div>
+        <>
+          <div className={styles.dualColumns}>
+            {FIXED_CATEGORIES.map((fixedCategory) => {
+              const levelEntries = LEVELS
+                .map((level) => kitsByCategory[fixedCategory][level])
+                .filter((opt): opt is KitOption => Boolean(opt));
+
+              return (
+                <section key={fixedCategory} className={styles.categoryColumn}>
+                  <div className={styles.categoryHeader}>{fixedCategory}</div>
+
+                  {mode === 'investimento' ? (
+                    <div className={styles.investmentValues}>
+                      {INVESTMENT_VALUES.map((value) => (
+                        <button
+                          key={`${fixedCategory}-${value}`}
+                          type="button"
+                          className={`${styles.valueCard} ${selectedInvestment[fixedCategory] === value ? styles.valueCardActive : ''}`}
+                          onClick={() => {
+                            setSelectedInvestment((prev) => ({ ...prev, [fixedCategory]: value }));
+                            setInvestmentPanel({ category: fixedCategory, budget: value });
+                            setSelectedBandKit(null);
+                          }}
+                        >
+                          {formatCurrency(value)}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className={`${styles.valueCard} ${styles.valueCardCustom}`}
+                        onClick={() => {
+                          setModeInUrl('estrutura');
+                          setShowCustomizeForm(true);
+                          setCustomCategory(fixedCategory);
+                        }}
+                      >
+                        Valor personalizado
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={styles.structureCards}>
+                      {LEVELS.map((level) => {
+                        const option = kitsByCategory[fixedCategory][level];
+                        if (!option) {
+                          return (
+                            <div key={`${fixedCategory}-${level}`} className={styles.structureCardMuted}>
+                              {LEVEL_LABELS[level]} indisponível
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <button
+                            key={option.kit.id}
+                            type="button"
+                            className={styles.structureCard}
+                            onClick={() => setModalKit(option.kit)}
+                          >
+                            <span className={styles.structureCardLevel}>{LEVEL_LABELS[level]}</span>
+                            <span className={styles.structureCardName}>{option.kit.nome}</span>
+                            <span className={styles.structureCardValue}>{formatCurrency(option.total)}</span>
+                          </button>
+                        );
+                      })}
+
+                      <button
+                        type="button"
+                        className={styles.customizeBtn}
+                        onClick={() => {
+                          setShowCustomizeForm((prev) => !prev);
+                          setCustomCategory(fixedCategory);
+                        }}
+                      >
+                        Personalizar
+                      </button>
+                    </div>
+                  )}
+
+                  {mode === 'investimento' && selectedInvestment[fixedCategory] && levelEntries.length === 0 && (
+                    <div className={styles.noCategoryData}>Cadastre kits Básico, Intermediário e Modelo para {fixedCategory}.</div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+
+          {mode === 'investimento' && investmentPanel && activeBudget && activeInvestmentCategory && (
+            <div className={styles.investmentPanelOverlay}>
+              <div className={styles.investmentPanelContainer}>
+                <aside className={styles.investmentCardSide}>
+                  <div className={styles.investmentCardStack}>
+                    <div className={styles.investmentLeftCard}>
+                      <h3 className={styles.investmentLeftCardTitle}>{activeInvestmentCategory}</h3>
+                      <span className={styles.investmentCardLabel}>Investimento</span>
+                      <div className={styles.investmentCardValue}>{formatCurrency(activeBudget)}</div>
+                    </div>
+
+                    {selectedBandKit && (
+                      <div className={styles.investmentLeftCard}>
+                        <span className={styles.investmentMountCount}>Você monta {selectedBandUnits}</span>
+                        <h4 className={styles.investmentSelectedLevel}>{selectedBandLevelLabelDisplay}</h4>
+                        <div className={styles.investmentSelectedPriceBlock}>
+                          <span className={styles.investmentSelectedPriceTop}>DE</span>
+                          <div className={styles.investmentSelectedTotal}>{formatCurrency(selectedBandTotal)}</div>
+                          <span className={styles.investmentSelectedPriceBottom}>CADA</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </aside>
+
+                <section className={styles.investmentBandsSide}>
+                  <div className={styles.panelHeader}>
+                    <h4 className={styles.tableTitle}>{selectedBandKit ? 'Tabela de Detalhamento' : 'Selecione o Kit'}</h4>
+                    <button
+                      type="button"
+                      className={styles.closeBtn}
+                      onClick={() => {
+                        setInvestmentPanel(null);
+                        setSelectedBandKit(null);
+                      }}
+                      aria-label="Fechar painel de investimento"
+                    >
+                      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {!selectedBandKit ? (
+                    <div className={styles.investmentBandsList}>
+                      {LEVELS.map((level) => {
+                        const option = kitsByCategory[activeInvestmentCategory][level];
+                        if (!option) {
+                          return (
+                            <div key={level} className={styles.investmentBandStripMuted}>
+                              {LEVEL_LABELS[level]} indisponível
+                            </div>
+                          );
+                        }
+
+                        const plan = calculateInvestmentPlan(activeBudget, option, activeOptions);
+
+                        return (
+                          <button
+                            key={option.kit.id}
+                            type="button"
+                            className={styles.investmentBandStrip}
+                            onClick={() => setSelectedBandKit(option.kit)}
+                          >
+                            <span className={styles.investmentBandTitle}>{LEVEL_LABELS[level]}</span>
+                            <span className={styles.investmentBandValue}>{formatCurrency(option.total)} por kit</span>
+                            <span className={styles.investmentBandText}>{buildPlanText(plan, option)}</span>
+                            {plan.remaining > 0 && (
+                              <span className={styles.investmentBandRemainder}>Sobra estimada: {formatCurrency(plan.remaining)}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <InvestmentKitDetail
+                      kit={selectedBandKit}
+                      produtos={produtos}
+                      onBack={() => setSelectedBandKit(null)}
+                      onOpenKitModal={() => setModalKit(selectedBandKit)}
+                    />
+                  )}
+                </section>
+              </div>
+            </div>
+          )}
+
+          {mode === 'estrutura' && showCustomizeForm && (
+            <section className={styles.customFormSection}>
+              <h3 className={styles.customFormTitle}>Personalizar Estrutura</h3>
+              <div className={styles.customFormGrid}>
+                <label className={styles.customLabel}>
+                  Local/Categoria
+                  <select
+                    className={styles.filterInput}
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value as FixedCategory)}
+                  >
+                    {FIXED_CATEGORIES.map((fixedCategory) => (
+                      <option key={fixedCategory} value={fixedCategory}>{fixedCategory}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className={styles.customLabel}>
+                  Tipo de Estrutura
+                  <select
+                    className={styles.filterInput}
+                    value={customLevel}
+                    onChange={(e) => setCustomLevel(e.target.value as KitLevel)}
+                  >
+                    {availableLevelsForCustom.map((level) => (
+                      <option key={level} value={level}>{LEVEL_LABELS[level]}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className={styles.customLabel}>
+                  Quantidade
+                  <input
+                    type="number"
+                    min={1}
+                    className={styles.filterInput}
+                    value={customQuantity}
+                    onChange={(e) => setCustomQuantity(Math.max(1, Number(e.target.value) || 1))}
+                  />
+                </label>
+              </div>
+
+              <div className={styles.customTotalRow}>
+                <span>Total dinâmico:</span>
+                <strong>{formatCurrency(customTotal)}</strong>
+              </div>
+
+              {customSelectedOption && (
+                <button
+                  type="button"
+                  className={styles.btnPrimary}
+                  onClick={() => setModalKit(customSelectedOption.kit)}
+                >
+                  Abrir Tabela de Detalhamento
+                </button>
+              )}
+            </section>
+          )}
+        </>
       )}
 
-      {/* Kits outside budget suggestion */}
-      {kitsFiltrados.length > 0 && orcamentoNum > 0 && kitsForaDoBudget.length > 0 && (
-        <div className={styles.suggestionsSection}>
-          <h3 className={styles.suggestionsTitle}>Kits acima do orçamento</h3>
-          <div className={styles.grid}>
-            {kitsForaDoBudget.map(({ kit, total }) => (
-              <KitCard
-                key={kit.id}
-                kit={kit}
-                total={total}
-                orcamento={orcamentoNum}
-              />
-            ))}
-          </div>
-        </div>
+      {modalKit && (
+        <KitDetailModal
+          kit={modalKit}
+          produtos={produtos}
+          user={user}
+          onClose={() => setModalKit(null)}
+        />
       )}
     </div>
+  );
+}
+
+export default function ProjetosModelosPage() {
+  return (
+    <Suspense fallback={<div className={styles.loading}>Carregando kits…</div>}>
+      <ProjetosModelosPageContent />
+    </Suspense>
   );
 }

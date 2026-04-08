@@ -48,13 +48,6 @@ export const TIPOS_SOLUCAO = [
 ];
 
 export const CATEGORIAS_KIT = [
-  'Biblioteca',
-  'Sala de Recursos',
-  'Laboratório de Informática',
-  'Comunicação Alternativa',
-  'Mobilidade',
-  'Reabilitação',
-  'Deficiência Visual',
-  'Deficiência Auditiva',
-  'Outro',
+  'Educação',
+  'Bibliotecas',
 ];

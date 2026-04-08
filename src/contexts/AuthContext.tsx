@@ -10,11 +10,11 @@ import {
 } from 'react';
 import {
   GoogleAuthProvider,
+  onIdTokenChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
-  onAuthStateChanged,
   type User,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -23,6 +23,7 @@ interface AuthContextValue {
   user: User | null;
   isAdmin: boolean;
   loading: boolean;
+  refreshClaims: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
@@ -46,8 +47,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAdmin(Boolean(tokenResult.claims.admin));
   }, []);
 
+  const refreshClaims = useCallback(async () => {
+    if (!auth.currentUser) {
+      setIsAdmin(false);
+      return;
+    }
+
+    await auth.currentUser.getIdToken(true);
+    await loadUserClaims(auth.currentUser);
+  }, [loadUserClaims]);
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       try {
         await loadUserClaims(firebaseUser);
@@ -115,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, login, resetPassword, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, isAdmin, loading, refreshClaims, login, resetPassword, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );

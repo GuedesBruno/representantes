@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -222,7 +223,23 @@ function SidebarContent() {
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const pageTitle = PAGE_TITLES[pathname] ?? 'Dashboard';
+  const router = useRouter();
+  const isProjetosModelos = pathname === '/dashboard/projetos-modelos';
+  const [mode, setModeState] = useState<'investimento' | 'estrutura'>('investimento');
+  const pageTitle = isProjetosModelos
+    ? (mode === 'investimento' ? 'Selecione o Invetimento' : 'Selecione a Estrutura')
+    : (PAGE_TITLES[pathname] ?? 'Dashboard');
+
+  useEffect(() => {
+    if (!isProjetosModelos) return;
+    const params = new URLSearchParams(window.location.search);
+    setModeState(params.get('modo') === 'estrutura' ? 'estrutura' : 'investimento');
+  }, [isProjetosModelos, pathname]);
+
+  const setMode = (nextMode: 'investimento' | 'estrutura') => {
+    setModeState(nextMode);
+    router.replace(`/dashboard/projetos-modelos?modo=${nextMode}`);
+  };
 
   return (
     <div className={styles.layout}>
@@ -231,8 +248,26 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className={styles.main}>
-        <header className={styles.header}>
+        <header className={`${styles.header} ${isProjetosModelos ? styles.headerWithMode : ''}`}>
           <h1 className={styles.headerTitle} id="page-title">{pageTitle}</h1>
+          {isProjetosModelos && (
+            <div className={styles.headerModeSwitch}>
+              <button
+                type="button"
+                className={`${styles.headerModeBtn} ${mode === 'investimento' ? styles.headerModeBtnActive : ''}`}
+                onClick={() => setMode('investimento')}
+              >
+                Invetimeto
+              </button>
+              <button
+                type="button"
+                className={`${styles.headerModeBtn} ${mode === 'estrutura' ? styles.headerModeBtnActive : ''}`}
+                onClick={() => setMode('estrutura')}
+              >
+                Estrutura
+              </button>
+            </div>
+          )}
         </header>
 
         <main

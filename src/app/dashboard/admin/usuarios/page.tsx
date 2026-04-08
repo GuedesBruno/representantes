@@ -9,9 +9,32 @@ import styles from './usuarios-admin.module.css';
 
 type UserRole = 'admin' | 'representante';
 
+interface VendedorOption {
+  nome: string;
+  email: string;
+}
+
+const VENDEDORES: VendedorOption[] = [
+  { nome: 'João Tiuzsi', email: 'comercial3@tecassistiva.com.br' },
+  { nome: 'Joelson Souza', email: 'joelsonsouza@tecassistiva.com.br' },
+  { nome: 'Pollyana Meira', email: 'comercial2@tecassistiva.com.br' },
+  { nome: 'Lucas Cavalcante', email: 'comercial5@tecassistiva.com.br' },
+  { nome: 'Jessica Cruz', email: 'comercial6@tecassistiva.com.br' },
+];
+
+const REGIOES = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
+
+const UFS_POR_REGIAO: Record<string, string[]> = {
+  Norte: ['AC', 'AP', 'AM', 'PA', 'RO', 'RR', 'TO'],
+  Nordeste: ['AL', 'BA', 'CE', 'MA', 'PB', 'PE', 'PI', 'RN', 'SE'],
+  'Centro-Oeste': ['DF', 'GO', 'MT', 'MS'],
+  Sudeste: ['ES', 'MG', 'RJ', 'SP'],
+  Sul: ['PR', 'RS', 'SC'],
+};
+
 interface UserDoc {
   id: string;
-  uid: string;
+  uid?: string;
   email: string;
   displayName?: string | null;
   role?: UserRole;
@@ -20,23 +43,11 @@ interface UserDoc {
     nomeComercial?: string | null;
     telefone?: string | null;
     regiao?: string | null;
-    avatarUrl?: string | null;
+    uf?: string | null;
   };
-  preferences?: {
-    idioma?: string;
-    moeda?: string;
-    tema?: string;
-    notificacoesEmail?: boolean;
-    notificacoesPush?: boolean;
-  };
-  business?: {
-    timeId?: string | null;
-    carteiraIds?: string[];
-    metas?: {
-      mensal?: number | null;
-      trimestral?: number | null;
-      anual?: number | null;
-    };
+  sales?: {
+    nomeVendedor?: string | null;
+    emailVendedor?: string | null;
   };
 }
 
@@ -45,22 +56,27 @@ const DEFAULT_EDITOR = {
   role: 'representante' as UserRole,
   nomeComercial: '',
   telefone: '',
+  email: '',
   regiao: '',
-  avatarUrl: '',
-  idioma: 'pt-BR',
-  moeda: 'BRL',
-  tema: 'light',
-  notificacoesEmail: true,
-  notificacoesPush: false,
-  timeId: '',
-  carteiraIds: '',
-  metaMensal: '',
-  metaTrimestral: '',
-  metaAnual: '',
+  uf: '',
+  nomeVendedor: '',
+  emailVendedor: '',
+};
+
+const DEFAULT_INVITE = {
+  displayName: '',
+  email: '',
+  role: 'representante' as UserRole,
+  nomeComercial: '',
+  telefone: '',
+  regiao: '',
+  uf: '',
+  nomeVendedor: '',
+  emailVendedor: '',
 };
 
 export default function AdminUsuariosPage() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, loading, refreshClaims } = useAuth();
   const router = useRouter();
 
   const [users, setUsers] = useState<UserDoc[]>([]);
@@ -73,6 +89,15 @@ export default function AdminUsuariosPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [invite, setInvite] = useState(DEFAULT_INVITE);
+  const [inviteError, setInviteError] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
+  const [inviteResetLink, setInviteResetLink] = useState('');
+
+  const selectedUid = selected?.uid || selected?.id || '';
+  const isEditingCurrentUser = Boolean(user?.uid && selectedUid && user.uid === selectedUid);
 
   useEffect(() => {
     if (!loading && !isAdmin) {
@@ -108,18 +133,11 @@ export default function AdminUsuariosPage() {
       role: item.role ?? (item.isAdmin ? 'admin' : 'representante'),
       nomeComercial: item.profile?.nomeComercial ?? '',
       telefone: item.profile?.telefone ?? '',
+      email: item.email ?? '',
       regiao: item.profile?.regiao ?? '',
-      avatarUrl: item.profile?.avatarUrl ?? '',
-      idioma: item.preferences?.idioma ?? 'pt-BR',
-      moeda: item.preferences?.moeda ?? 'BRL',
-      tema: item.preferences?.tema ?? 'light',
-      notificacoesEmail: item.preferences?.notificacoesEmail ?? true,
-      notificacoesPush: item.preferences?.notificacoesPush ?? false,
-      timeId: item.business?.timeId ?? '',
-      carteiraIds: (item.business?.carteiraIds ?? []).join(', '),
-      metaMensal: item.business?.metas?.mensal?.toString() ?? '',
-      metaTrimestral: item.business?.metas?.trimestral?.toString() ?? '',
-      metaAnual: item.business?.metas?.anual?.toString() ?? '',
+      uf: item.profile?.uf ?? '',
+      nomeVendedor: item.sales?.nomeVendedor ?? '',
+      emailVendedor: item.sales?.emailVendedor ?? '',
     });
   }
 
@@ -128,6 +146,74 @@ export default function AdminUsuariosPage() {
     setError('');
     setSuccess('');
   }
+
+  function handleVendedorChange(email: string) {
+    if (!email) {
+      setEditor((p) => ({ ...p, nomeVendedor: '', emailVendedor: '' }));
+      return;
+    }
+
+    const vendedor = VENDEDORES.find((item) => item.email === email);
+    if (!vendedor) return;
+
+    setEditor((p) => ({
+      ...p,
+      nomeVendedor: vendedor.nome,
+      emailVendedor: vendedor.email,
+    }));
+  }
+
+  function handleInviteVendedorChange(email: string) {
+    if (!email) {
+      setInvite((p) => ({ ...p, nomeVendedor: '', emailVendedor: '' }));
+      return;
+    }
+
+    const vendedor = VENDEDORES.find((item) => item.email === email);
+    if (!vendedor) return;
+
+    setInvite((p) => ({
+      ...p,
+      nomeVendedor: vendedor.nome,
+      emailVendedor: vendedor.email,
+    }));
+  }
+
+  function handleRegiaoChange(regiao: string) {
+    setEditor((prev) => {
+      const ufsDaRegiao = regiao ? (UFS_POR_REGIAO[regiao] ?? []) : [];
+      const ufAtualValida = prev.uf && ufsDaRegiao.includes(prev.uf);
+
+      return {
+        ...prev,
+        regiao,
+        uf: ufAtualValida ? prev.uf : '',
+      };
+    });
+  }
+
+  function handleInviteRegiaoChange(regiao: string) {
+    setInvite((prev) => {
+      const ufsDaRegiao = regiao ? (UFS_POR_REGIAO[regiao] ?? []) : [];
+      const ufAtualValida = prev.uf && ufsDaRegiao.includes(prev.uf);
+
+      return {
+        ...prev,
+        regiao,
+        uf: ufAtualValida ? prev.uf : '',
+      };
+    });
+  }
+
+  const ufsDisponiveis = useMemo(() => {
+    if (!editor.regiao) return [];
+    return UFS_POR_REGIAO[editor.regiao] ?? [];
+  }, [editor.regiao]);
+
+  const inviteUfsDisponiveis = useMemo(() => {
+    if (!invite.regiao) return [];
+    return UFS_POR_REGIAO[invite.regiao] ?? [];
+  }, [invite.regiao]);
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return users;
@@ -150,39 +236,20 @@ export default function AdminUsuariosPage() {
     try {
       const idToken = await user.getIdToken();
 
-      const toNumberOrNull = (v: string) => {
-        const n = Number(v);
-        return Number.isFinite(n) && v.trim() !== '' ? n : null;
-      };
-
       const payload = {
-        targetUid: selected.uid,
+        targetUid: selected.uid || selected.id,
         role: editor.role,
+        email: editor.email.trim() || null,
         displayName: editor.displayName || null,
         profile: {
           nomeComercial: editor.nomeComercial || null,
           telefone: editor.telefone || null,
           regiao: editor.regiao || null,
-          avatarUrl: editor.avatarUrl || null,
+          uf: editor.uf || null,
         },
-        preferences: {
-          idioma: editor.idioma || 'pt-BR',
-          moeda: editor.moeda || 'BRL',
-          tema: editor.tema || 'light',
-          notificacoesEmail: editor.notificacoesEmail,
-          notificacoesPush: editor.notificacoesPush,
-        },
-        business: {
-          timeId: editor.timeId || null,
-          carteiraIds: editor.carteiraIds
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-          metas: {
-            mensal: toNumberOrNull(editor.metaMensal),
-            trimestral: toNumberOrNull(editor.metaTrimestral),
-            anual: toNumberOrNull(editor.metaAnual),
-          },
+        sales: {
+          nomeVendedor: editor.nomeVendedor || null,
+          emailVendedor: editor.emailVendedor || null,
         },
       };
 
@@ -200,11 +267,67 @@ export default function AdminUsuariosPage() {
         throw new Error(data.error ?? 'Falha ao atualizar usuário.');
       }
 
+      if (isEditingCurrentUser) {
+        await refreshClaims();
+      }
+
       setSuccess('Usuário atualizado com sucesso.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar usuário.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleInviteUser(e: FormEvent) {
+    e.preventDefault();
+    if (!user) return;
+
+    setInviting(true);
+    setInviteError('');
+    setInviteSuccess('');
+    setInviteResetLink('');
+
+    try {
+      const idToken = await user.getIdToken();
+      const payload = {
+        email: invite.email.trim(),
+        displayName: invite.displayName.trim() || null,
+        role: invite.role,
+        profile: {
+          nomeComercial: invite.nomeComercial || null,
+          telefone: invite.telefone || null,
+          regiao: invite.regiao || null,
+          uf: invite.uf || null,
+        },
+        sales: {
+          nomeVendedor: invite.nomeVendedor || null,
+          emailVendedor: invite.emailVendedor || null,
+        },
+      };
+
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Falha ao convidar usuário.');
+      }
+
+      setInviteSuccess('Usuário convidado com sucesso. Envie o link de redefinição para ele.');
+      setInviteResetLink(typeof data.resetLink === 'string' ? data.resetLink : '');
+      setInvite(DEFAULT_INVITE);
+      setInviteOpen(false);
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : 'Erro ao convidar usuário.');
+    } finally {
+      setInviting(false);
     }
   }
 
@@ -231,6 +354,124 @@ export default function AdminUsuariosPage() {
         />
       </section>
 
+      <section className={styles.card}>
+        <div className={styles.actions}>
+          <h3 className={styles.sectionTitle}>Convidar Usuário</h3>
+          <button
+            type="button"
+            className={styles.secondary}
+            onClick={() => setInviteOpen((prev) => !prev)}
+          >
+            {inviteOpen ? 'Fechar convite' : 'Convidar usuário'}
+          </button>
+        </div>
+
+        {inviteOpen && (
+          <form className={styles.form} onSubmit={handleInviteUser}>
+            <div className={styles.formGrid}>
+              <label>
+                Nome
+                <input
+                  value={invite.displayName}
+                  onChange={(e) => setInvite((p) => ({ ...p, displayName: e.target.value }))}
+                />
+              </label>
+
+              <label>
+                Email
+                <input
+                  type="email"
+                  required
+                  value={invite.email}
+                  onChange={(e) => setInvite((p) => ({ ...p, email: e.target.value }))}
+                />
+              </label>
+
+              <label>
+                Role
+                <select
+                  value={invite.role}
+                  onChange={(e) => setInvite((p) => ({ ...p, role: e.target.value as UserRole }))}
+                >
+                  <option value="representante">representante</option>
+                  <option value="admin">admin</option>
+                </select>
+              </label>
+
+              <label>
+                Nome da Empresa
+                <input
+                  value={invite.nomeComercial}
+                  onChange={(e) => setInvite((p) => ({ ...p, nomeComercial: e.target.value }))}
+                />
+              </label>
+
+              <label>
+                Telefone
+                <input
+                  value={invite.telefone}
+                  onChange={(e) => setInvite((p) => ({ ...p, telefone: e.target.value }))}
+                />
+              </label>
+
+              <label>
+                Região
+                <select
+                  value={invite.regiao}
+                  onChange={(e) => handleInviteRegiaoChange(e.target.value)}
+                >
+                  <option value="">Selecione a região</option>
+                  {REGIOES.map((regiao) => (
+                    <option key={regiao} value={regiao}>{regiao}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                UF
+                <select
+                  value={invite.uf}
+                  onChange={(e) => setInvite((p) => ({ ...p, uf: e.target.value }))}
+                  disabled={!invite.regiao}
+                >
+                  <option value="">{invite.regiao ? 'Selecione a UF' : 'Selecione primeiro a região'}</option>
+                  {inviteUfsDisponiveis.map((uf) => (
+                    <option key={uf} value={uf}>{uf}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Vendedor
+                <select
+                  value={invite.emailVendedor}
+                  onChange={(e) => handleInviteVendedorChange(e.target.value)}
+                >
+                  <option value="">Selecione um vendedor</option>
+                  {VENDEDORES.map((vendedor) => (
+                    <option key={vendedor.email} value={vendedor.email}>
+                      {vendedor.nome} ({vendedor.email})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className={styles.actions}>
+              <button type="submit" className={styles.primary} disabled={inviting}>
+                {inviting ? 'Convidando…' : 'Confirmar convite'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {inviteError && <p className={styles.error}>{inviteError}</p>}
+        {inviteSuccess && <p className={styles.success}>{inviteSuccess}</p>}
+        {inviteResetLink && (
+          <p className={styles.success}>Link de redefinição: {inviteResetLink}</p>
+        )}
+      </section>
+
       <section className={styles.grid}>
         <div className={styles.card}>
           <h3 className={styles.sectionTitle}>Lista</h3>
@@ -247,7 +488,7 @@ export default function AdminUsuariosPage() {
               </thead>
               <tbody>
                 {filteredUsers.map((u) => (
-                  <tr key={u.uid}>
+                  <tr key={u.uid || u.id}>
                     <td>{u.email}</td>
                     <td>{u.displayName || u.profile?.nomeComercial || '—'}</td>
                     <td>{u.profile?.regiao || '—'}</td>
@@ -289,6 +530,7 @@ export default function AdminUsuariosPage() {
                   <select
                     value={editor.role}
                     onChange={(e) => setEditor((p) => ({ ...p, role: e.target.value as UserRole }))}
+                    disabled={isEditingCurrentUser}
                   >
                     <option value="representante">representante</option>
                     <option value="admin">admin</option>
@@ -312,107 +554,57 @@ export default function AdminUsuariosPage() {
                 </label>
 
                 <label>
+                  Email
+                  <input
+                    type="email"
+                    value={editor.email}
+                    onChange={(e) => setEditor((p) => ({ ...p, email: e.target.value }))}
+                    readOnly={isEditingCurrentUser}
+                  />
+                </label>
+
+                <label>
                   Região
-                  <input
-                    value={editor.regiao}
-                    onChange={(e) => setEditor((p) => ({ ...p, regiao: e.target.value }))}
-                  />
-                </label>
-
-                <label>
-                  Avatar URL
-                  <input
-                    value={editor.avatarUrl}
-                    onChange={(e) => setEditor((p) => ({ ...p, avatarUrl: e.target.value }))}
-                  />
-                </label>
-
-                <label>
-                  Idioma
-                  <input
-                    value={editor.idioma}
-                    onChange={(e) => setEditor((p) => ({ ...p, idioma: e.target.value }))}
-                  />
-                </label>
-
-                <label>
-                  Moeda
-                  <input
-                    value={editor.moeda}
-                    onChange={(e) => setEditor((p) => ({ ...p, moeda: e.target.value }))}
-                  />
-                </label>
-
-                <label>
-                  Tema
                   <select
-                    value={editor.tema}
-                    onChange={(e) => setEditor((p) => ({ ...p, tema: e.target.value }))}
+                    value={editor.regiao}
+                    onChange={(e) => handleRegiaoChange(e.target.value)}
                   >
-                    <option value="light">light</option>
-                    <option value="dark">dark</option>
+                    <option value="">Selecione a região</option>
+                    {REGIOES.map((regiao) => (
+                      <option key={regiao} value={regiao}>{regiao}</option>
+                    ))}
                   </select>
                 </label>
 
                 <label>
-                  Time ID
-                  <input
-                    value={editor.timeId}
-                    onChange={(e) => setEditor((p) => ({ ...p, timeId: e.target.value }))}
-                  />
-                </label>
-
-                <label className={styles.full}>
-                  Carteiras (ids separados por vírgula)
-                  <input
-                    value={editor.carteiraIds}
-                    onChange={(e) => setEditor((p) => ({ ...p, carteiraIds: e.target.value }))}
-                  />
-                </label>
-
-                <label>
-                  Meta mensal
-                  <input
-                    value={editor.metaMensal}
-                    onChange={(e) => setEditor((p) => ({ ...p, metaMensal: e.target.value }))}
-                  />
+                  UF
+                  <select
+                    value={editor.uf}
+                    onChange={(e) => setEditor((p) => ({ ...p, uf: e.target.value }))}
+                    disabled={!editor.regiao}
+                  >
+                    <option value="">{editor.regiao ? 'Selecione a UF' : 'Selecione primeiro a região'}</option>
+                    {ufsDisponiveis.map((uf) => (
+                      <option key={uf} value={uf}>{uf}</option>
+                    ))}
+                  </select>
                 </label>
 
                 <label>
-                  Meta trimestral
-                  <input
-                    value={editor.metaTrimestral}
-                    onChange={(e) => setEditor((p) => ({ ...p, metaTrimestral: e.target.value }))}
-                  />
+                  Vendedor
+                  <select
+                    value={editor.emailVendedor}
+                    onChange={(e) => handleVendedorChange(e.target.value)}
+                  >
+                    <option value="">Selecione um vendedor</option>
+                    {VENDEDORES.map((vendedor) => (
+                      <option key={vendedor.email} value={vendedor.email}>
+                        {vendedor.nome} ({vendedor.email})
+                      </option>
+                    ))}
+                  </select>
                 </label>
 
-                <label>
-                  Meta anual
-                  <input
-                    value={editor.metaAnual}
-                    onChange={(e) => setEditor((p) => ({ ...p, metaAnual: e.target.value }))}
-                  />
-                </label>
-              </div>
-
-              <div className={styles.checkboxRow}>
-                <label className={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={editor.notificacoesEmail}
-                    onChange={(e) => setEditor((p) => ({ ...p, notificacoesEmail: e.target.checked }))}
-                  />
-                  Notificações por e-mail
-                </label>
-
-                <label className={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={editor.notificacoesPush}
-                    onChange={(e) => setEditor((p) => ({ ...p, notificacoesPush: e.target.checked }))}
-                  />
-                  Notificações push
-                </label>
               </div>
 
               {error && <p className={styles.error}>{error}</p>}

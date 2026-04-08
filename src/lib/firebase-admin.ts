@@ -69,6 +69,8 @@ function getAdminDb() {
   return getFirestore(getAdminApp());
 }
 
+export { getAdminDb };
+
 type UserRole = 'admin' | 'representante';
 
 export async function setUserRole(targetUid: string, role: UserRole) {
@@ -93,6 +95,26 @@ export async function setUserRole(targetUid: string, role: UserRole) {
   );
 }
 
+export async function updateUserEmail(targetUid: string, email: string | null) {
+  if (!email) return;
+
+  const auth = getAdminAuth();
+  const db = getAdminDb();
+  const now = new Date();
+
+  await auth.updateUser(targetUid, { email });
+
+  await db.collection('users').doc(targetUid).set(
+    {
+      email,
+      audit: {
+        updatedAt: now,
+      },
+    },
+    { merge: true }
+  );
+}
+
 export async function patchUserProfile(
   targetUid: string,
   patch: {
@@ -100,6 +122,7 @@ export async function patchUserProfile(
     profile?: Record<string, unknown>;
     preferences?: Record<string, unknown>;
     business?: Record<string, unknown>;
+    sales?: Record<string, unknown>;
   }
 ) {
   const db = getAdminDb();
@@ -127,11 +150,81 @@ export async function patchUserProfile(
     payload.business = patch.business;
   }
 
+  if (patch.sales) {
+    payload.sales = patch.sales;
+  }
+
   await db.collection('users').doc(targetUid).set(payload, { merge: true });
 }
 
 export async function verifyIdToken(idToken: string) {
   return getAdminAuth().verifyIdToken(idToken);
+}
+
+export async function inviteUser(input: {
+  email: string;
+  displayName: string | null;
+  role: UserRole;
+  profile?: Record<string, unknown>;
+  sales?: Record<string, unknown>;
+}) {
+  const auth = getAdminAuth();
+  const db = getAdminDb();
+  const now = new Date();
+
+  let userRecord;
+  try {
+    userRecord = await auth.getUserByEmail(input.email);
+  } catch {
+    userRecord = await auth.createUser({
+      email: input.email,
+      displayName: input.displayName ?? undefined,
+      emailVerified: false,
+      disabled: false,
+    });
+  }
+
+  const isAdmin = input.role === 'admin';
+  await auth.setCustomUserClaims(userRecord.uid, { admin: isAdmin });
+  await auth.revokeRefreshTokens(userRecord.uid);
+
+  const baseProfile = {
+    nomeComercial: null,
+    telefone: null,
+    regiao: null,
+    uf: null,
+  };
+
+  await db.collection('users').doc(userRecord.uid).set(
+    {
+      uid: userRecord.uid,
+      email: input.email,
+      displayName: input.displayName ?? null,
+      role: input.role,
+      isAdmin,
+      profile: {
+        ...baseProfile,
+        ...(input.profile ?? {}),
+      },
+      sales: {
+        nomeVendedor: null,
+        emailVendedor: null,
+        ...(input.sales ?? {}),
+      },
+      audit: {
+        updatedAt: now,
+        createdAt: now,
+      },
+      createdAt: now,
+    },
+    { merge: true }
+  );
+
+  const resetLink = await auth.generatePasswordResetLink(input.email);
+  return {
+    uid: userRecord.uid,
+    resetLink,
+  };
 }
 
 export async function upsertUserProfile(input: {

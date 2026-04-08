@@ -142,8 +142,6 @@ export default function FolhetosPage() {
     setMessage(null);
 
     if (!isAdmin) {
-      setSubmitState('error');
-      setMessage('Somente administradores podem cadastrar folhetos.');
       return;
     }
 
@@ -228,11 +226,7 @@ export default function FolhetosPage() {
               {submitState === 'loading' ? 'Enviando...' : 'Cadastrar folheto'}
             </button>
           </form>
-        ) : (
-          <div className={styles.adminOnly} role="note">
-            Somente administradores podem cadastrar novos folhetos.
-          </div>
-        )}
+        ) : null}
 
         {message && (
           <div
