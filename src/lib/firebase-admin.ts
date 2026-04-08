@@ -316,3 +316,11 @@ export async function verifyAdminIdToken(idToken: string) {
 
   return decodedToken;
 }
+
+export async function deleteUser(uid: string) {
+  const auth = getAdminAuth();
+  const db = getAdminDb();
+
+  await auth.deleteUser(uid);
+  await db.collection('users').doc(uid).delete();
+}

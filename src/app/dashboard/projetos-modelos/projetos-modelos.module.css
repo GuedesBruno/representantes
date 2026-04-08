@@ -85,25 +85,26 @@
   }
 
   .investmentValues {
+    width: 100%;
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-2);
     align-items: center;
   }
 
   .valueCard {
-    width: 100%;
-    max-width: 280px;
-    min-height: 116px;
+    width: min(100%, 260px);
+    min-height: 0;
+    height: clamp(82px, 10.2vh, 112px);
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-xl);
     background: var(--color-white);
-    padding: var(--space-5);
+    padding: 12px 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    font-size: clamp(1.45rem, 2.2vw, 1.95rem);
+    font-size: clamp(1.06rem, 1.35vw, 1.32rem);
     font-weight: 700;
     color: var(--color-gray-800);
     cursor: pointer;
@@ -124,9 +125,10 @@
   }
 
   .valueCardCustom {
+    width: min(100%, 260px);
     font-weight: 600;
     color: var(--color-gray-600);
-    font-size: clamp(1rem, 1.6vw, 1.25rem);
+    font-size: clamp(0.88rem, 1.05vw, 1rem);
     line-height: 1.2;
   }
 
@@ -251,12 +253,12 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding: var(--space-6) var(--space-4);
+    padding: clamp(8px, 1.4vh, 16px) clamp(8px, 1.4vw, 16px);
   }
 
   .investmentPanelContainer {
-    width: calc(100vw - var(--space-8));
-    height: min(86vh, 900px);
+    width: calc(100vw - 24px);
+    height: min(92vh, 900px);
     display: flex;
     background: var(--color-white);
     border-radius: var(--radius-lg);
@@ -265,12 +267,12 @@
   }
 
   .investmentCardSide {
-      width: 320px;
+      width: 300px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: var(--space-5);
+    padding: var(--space-4);
     border-right: 1px solid var(--color-gray-200);
     background: var(--color-gray-50);
   }
@@ -288,11 +290,11 @@
       border-radius: var(--radius-xl);
       background: var(--color-white);
       box-shadow: var(--shadow-xs);
-      padding: var(--space-4);
+      padding: var(--space-3);
       display: flex;
       flex-direction: column;
       gap: var(--space-1);
-      min-height: 180px;
+      min-height: 158px;
     }
 
     .investmentLeftCardTitle {
@@ -329,55 +331,84 @@
 
   .investmentBandsList {
     flex: 1;
-    padding: var(--space-4);
+    padding: var(--space-4) clamp(1.1rem, 2vw, 1.9rem);
       display: grid;
       grid-template-rows: repeat(3, minmax(0, 1fr));
-    gap: var(--space-3);
-    overflow-y: auto;
+    gap: var(--space-4);
+    overflow: hidden;
   }
 
   .investmentBandStrip {
     width: 100%;
       min-height: 0;
     border: 1px solid var(--color-gray-200);
-    border-radius: var(--radius-lg);
+    border-radius: calc(var(--radius-xl) + 2px);
     background: var(--color-white);
     text-align: left;
-    padding: var(--space-4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
+    padding: clamp(1rem, 1.8vh, 1.25rem) clamp(1.6rem, 2.7vw, 2.3rem);
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    align-content: start;
+    gap: 0.72rem;
     cursor: pointer;
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
   }
 
   .investmentBandStrip:hover {
     border-color: var(--color-primary);
     box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
   }
 
   .investmentBandStripMuted {
     width: 100%;
       min-height: 0;
     border: 1px dashed var(--color-gray-300);
-    border-radius: var(--radius-lg);
-    padding: var(--space-4);
+    border-radius: calc(var(--radius-xl) + 2px);
+    padding: clamp(0.95rem, 1.6vh, 1.15rem) clamp(1.45rem, 2.35vw, 2.05rem);
     color: var(--color-gray-500);
       font-size: var(--font-size-base);
       display: flex;
       align-items: center;
     }
 
+    .investmentBandTopRow {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+
     .investmentBandTitle {
-      font-size: clamp(1.15rem, 2.1vw, 1.5rem);
+      font-size: clamp(2.4rem, 3.45vw, 2.85rem);
       font-weight: 900;
       color: var(--color-gray-900);
+      line-height: 1.2;
+    }
+
+    .investmentBandValueBlock {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
     }
 
     .investmentBandValue {
-      font-size: clamp(1.2rem, 2.4vw, 1.55rem);
+      font-size: clamp(3.05rem, 4.73vw, 3.99rem);
       color: var(--color-primary);
-      font-weight: 800;
+      font-weight: 900;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .investmentBandUnit {
+      font-size: clamp(1.2rem, 1.5vw, 1.4rem);
+      color: var(--color-gray-500);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-top: 0;
     }
 
     .investmentBandPriceBlock {
@@ -398,15 +429,67 @@
     }
 
     .investmentBandText {
-      font-size: clamp(0.98rem, 1.5vw, 1.1rem);
+      font-size: clamp(1.92rem, 2.1vw, 2.08rem);
       color: var(--color-gray-700);
-      line-height: 1.5;
+      line-height: 1.45;
+      max-width: 62ch;
     }
 
     .investmentBandRemainder {
-      font-size: var(--font-size-sm);
+      font-size: var(--font-size-xs);
       color: var(--color-gray-500);
     }
+
+@media (max-height: 860px) {
+  .investmentPanelContainer {
+    height: min(95vh, 900px);
+  }
+
+  .investmentCardSide {
+    width: 280px;
+    padding: var(--space-3);
+  }
+
+  .investmentLeftCard {
+    min-height: 144px;
+    padding: 10px;
+  }
+
+  .investmentBandsList {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .investmentBandStrip,
+  .investmentBandStripMuted {
+    padding: 12px 18px;
+  }
+
+  .investmentBandTopRow {
+    gap: 8px;
+  }
+
+  .investmentBandTitle {
+    font-size: 2.14rem;
+  }
+
+  .investmentBandValueBlock {
+    gap: 3px;
+  }
+
+  .investmentBandValue {
+    font-size: 2.6rem;
+  }
+
+  .investmentBandUnit {
+    font-size: 1rem;
+  }
+
+  .investmentBandText {
+    font-size: 1.76rem;
+    line-height: 1.35;
+  }
+}
 
     .investmentSelectedLevel {
       margin: 0;
@@ -509,7 +592,11 @@
       border-top: 1px solid var(--color-gray-200);
       padding: var(--space-4);
       display: flex;
-      justify-content: flex-end;
+      justify-content: flex-start;
+    }
+
+    .investmentDetailFooter .footerBar {
+      width: 100%;
     }
 
     .investmentDetailFooterTotal {
@@ -517,6 +604,8 @@
       flex-direction: column;
       align-items: flex-end;
       gap: 2px;
+      margin-left: auto;
+      flex-shrink: 0;
     }
 
     .investmentDetailTotal {
@@ -693,6 +782,12 @@
 
   .customFormGrid {
     grid-template-columns: 1fr;
+  }
+
+  .valueCard {
+    width: min(100%, 250px);
+    height: clamp(78px, 9.4vh, 104px);
+    font-size: clamp(1rem, 2vw, 1.18rem);
   }
 }
 
@@ -914,6 +1009,17 @@
   justify-content: space-between;
 }
 
+.panelHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.panelHeaderBackBtn {
+  padding: 0.4rem 0.72rem;
+  font-size: var(--font-size-xs);
+}
+
 .tableTitle {
   margin: 0;
   font-size: var(--font-size-lg);
@@ -1052,13 +1158,42 @@
   padding: var(--space-3);
 }
 
+.treeListThreeColumns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+@media (max-width: 1400px) {
+  .treeListThreeColumns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 920px) {
+  .treeListThreeColumns {
+    grid-template-columns: 1fr;
+  }
+}
+
 .treeListTwoColumns .treeItem {
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-md);
   background: var(--color-white);
 }
 
+.treeListThreeColumns .treeItem {
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
 .treeListTwoColumns .treeItem:last-child {
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.treeListThreeColumns .treeItem:last-child {
   border-bottom: 1px solid var(--color-gray-200);
 }
 
@@ -1163,6 +1298,21 @@
   text-align: left;
 }
 
+.treeListTwoColumns .productTreeName {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.treeListThreeColumns .productTreeName {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
 .productQtyReadonly {
   font-weight: 600;
   color: var(--color-primary);
@@ -1194,30 +1344,34 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  position: relative;
   color: #111;
-  cursor: help;
   flex-shrink: 0;
   width: 22px;
   height: 22px;
 }
 
+.infoIconButton {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: help;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .infoTooltip {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  transform: none;
+  position: fixed;
   background: #002554;
   color: white;
   font-size: var(--font-size-sm);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
   white-space: normal;
-  width: 340px;
-  z-index: 2000;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 200ms ease, visibility 200ms ease;
+  z-index: 3000;
   pointer-events: none;
   line-height: 1.5;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
@@ -1226,16 +1380,19 @@
 .infoTooltip::after {
   content: '';
   position: absolute;
-  bottom: 100%;
-  left: 8px;
-  transform: none;
+  left: 50%;
+  transform: translateX(-50%);
   border: 6px solid transparent;
+}
+
+.infoTooltipBelow::after {
+  bottom: 100%;
   border-bottom-color: #002554;
 }
 
-.infoIconContainer:hover .infoTooltip {
-  opacity: 1;
-  visibility: visible;
+.infoTooltipAbove::after {
+  top: 100%;
+  border-top-color: #002554;
 }
 
 .productEditRow {

@@ -227,7 +227,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const isProjetosModelos = pathname === '/dashboard/projetos-modelos';
   const [mode, setModeState] = useState<'investimento' | 'estrutura'>('investimento');
   const pageTitle = isProjetosModelos
-    ? (mode === 'investimento' ? 'Selecione o Invetimento' : 'Selecione a Estrutura')
+    ? (mode === 'investimento' ? 'Selecione o Investimento' : 'Selecione a Estrutura')
     : (PAGE_TITLES[pathname] ?? 'Dashboard');
 
   useEffect(() => {
@@ -257,7 +257,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                 className={`${styles.headerModeBtn} ${mode === 'investimento' ? styles.headerModeBtnActive : ''}`}
                 onClick={() => setMode('investimento')}
               >
-                Invetimeto
+                Investimento
               </button>
               <button
                 type="button"

@@ -95,6 +95,7 @@ export default function AdminUsuariosPage() {
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
   const [inviteResetLink, setInviteResetLink] = useState('');
+  const [deleting, setDeleting] = useState<string>('');
 
   const selectedUid = selected?.uid || selected?.id || '';
   const isEditingCurrentUser = Boolean(user?.uid && selectedUid && user.uid === selectedUid);
@@ -320,14 +321,49 @@ export default function AdminUsuariosPage() {
         throw new Error(data.error ?? 'Falha ao convidar usuário.');
       }
 
-      setInviteSuccess('Usuário convidado com sucesso. Envie o link de redefinição para ele.');
-      setInviteResetLink(typeof data.resetLink === 'string' ? data.resetLink : '');
+      const emailMsg = data.emailSent
+        ? `Usuário convidado com sucesso. Um email foi enviado para ${invite.email.trim()}.`
+        : 'Usuário convidado com sucesso. Copie o link abaixo e envie para o usuário.';
+      setInviteSuccess(emailMsg);
+      setInviteResetLink(!data.emailSent && typeof data.resetLink === 'string' ? data.resetLink : '');
       setInvite(DEFAULT_INVITE);
       setInviteOpen(false);
     } catch (err) {
       setInviteError(err instanceof Error ? err.message : 'Erro ao convidar usuário.');
     } finally {
       setInviting(false);
+    }
+  }
+
+  async function handleDeleteUser(targetUid: string, email: string) {
+    if (!user) return;
+    const confirmed = window.confirm(
+      `Excluir o usuário "${email}"?\n\nEsta ação não pode ser desfeita.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(targetUid);
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ targetUid }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Falha ao excluir usuário.');
+      }
+      if (selected && (selected.uid === targetUid || selected.id === targetUid)) {
+        closeEditor();
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao excluir usuário.');
+    } finally {
+      setDeleting('');
     }
   }
 
@@ -501,6 +537,16 @@ export default function AdminUsuariosPage() {
                       <button type="button" className={styles.editButton} onClick={() => openEditor(u)}>
                         Editar
                       </button>
+                      {(u.uid || u.id) !== user?.uid && (
+                        <button
+                          type="button"
+                          className={styles.deleteButton}
+                          disabled={deleting === (u.uid || u.id)}
+                          onClick={() => handleDeleteUser(u.uid || u.id, u.email)}
+                        >
+                          {deleting === (u.uid || u.id) ? '…' : 'Excluir'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

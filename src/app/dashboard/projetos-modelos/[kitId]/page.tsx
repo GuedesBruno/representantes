@@ -17,6 +17,14 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value);
 }
 
+function truncateProductName(name: string, maxLength = 32) {
+  if (name.length <= maxLength) {
+    return name;
+  }
+
+  return `${name.slice(0, maxLength - 1)}…`;
+}
+
 function Tooltip({ text }: { text: string }) {
   return (
     <span className={styles.tooltipWrapper} aria-label={text}>
@@ -116,10 +124,14 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
         throw new Error(data.error ?? 'Erro ao solicitar cotação.');
       }
 
-      setQuoteSuccess('Cotação solicitada com sucesso! Em breve o vendedor entrará em contato.');
+      if (data.emailSent) {
+        setQuoteSuccess('Cotação solicitada com sucesso! Em breve o vendedor entrará em contato.');
+      } else {
+        setQuoteError(data.message ?? 'Cotação registrada, mas o email para o vendedor não foi enviado.');
+      }
       setTimeout(() => {
         router.push('/dashboard/projetos-modelos');
-      }, 2000);
+      }, 2500);
     } catch (err) {
       setQuoteError(err instanceof Error ? err.message : 'Erro ao solicitar cotação.');
     } finally {
@@ -234,8 +246,8 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
                         ) : (
                           <div className={styles.thumbPlaceholder} aria-hidden="true" />
                         )}
-                        <span className={styles.productName}>
-                          {item.nomeProduto}
+                        <span className={styles.productName} title={item.nomeProduto}>
+                          {truncateProductName(item.nomeProduto)}
                           {produto?.descricaoCurta && (
                             <Tooltip text={produto.descricaoCurta} />
                           )}

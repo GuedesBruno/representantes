@@ -77,8 +77,10 @@ export async function POST(request: NextRequest) {
     const docRef = await db.collection('cotacoes').add(quoteRequest);
 
     // Send email to vendor
+    let emailSent = false;
+    let emailError: string | null = null;
     try {
-      await sendEmailToVendor({
+      const result = await sendEmailToVendor({
         vendedorNome: nomeVendedor,
         vendedorEmail: emailVendedor,
         representanteEmail,
@@ -87,15 +89,23 @@ export async function POST(request: NextRequest) {
         totalGeral,
         quoteId: docRef.id,
       });
+      emailSent = result.sent;
+      emailError = result.error ?? null;
     } catch (emailError) {
       console.error('Erro ao enviar email:', emailError);
+      emailSent = false;
+      emailError = emailError instanceof Error ? emailError.message : 'Falha ao enviar email.';
       // Don't fail the request if email sending fails
     }
 
     return NextResponse.json({
       ok: true,
       quoteId: docRef.id,
-      message: 'Cotação solicitada com sucesso. Em breve o vendedor entrará em contato.',
+      emailSent,
+      emailError,
+      message: emailSent
+        ? 'Cotação solicitada com sucesso. Em breve o vendedor entrará em contato.'
+        : 'Cotação registrada, mas não foi possível enviar o email ao vendedor.',
     });
   } catch (error) {
     console.error('Erro ao processar requisição de cotação:', error);
@@ -129,10 +139,14 @@ async function sendEmailToVendor({
   const resendApiKey = process.env.RESEND_API_KEY;
   if (!resendApiKey) {
     console.warn('RESEND_API_KEY não está configurada. Email não será enviado.');
-    return;
+    return {
+      sent: false,
+      error: 'RESEND_API_KEY não configurada.',
+    };
   }
 
   const resend = new Resend(resendApiKey);
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@site.tecassistiva.com.br';
 
   // Format currency
   const formatCurrency = (value: number) =>
@@ -226,7 +240,7 @@ async function sendEmailToVendor({
 
   try {
     await resend.emails.send({
-      from: 'noreply@tecassistiva.com.br',
+      from: fromEmail,
       to: vendedorEmail,
       subject: `[Cotação ${quoteId}] ${kitNome} - ${representanteEmail}`,
       html: htmlContent,
@@ -234,8 +248,14 @@ async function sendEmailToVendor({
     });
 
     console.log(`Email enviado para ${vendedorEmail} (${vendedorNome})`);
+    return {
+      sent: true,
+    };
   } catch (err) {
     console.error('Erro ao enviar email via Resend:', err);
-    throw err;
+    return {
+      sent: false,
+      error: err instanceof Error ? err.message : 'Falha ao enviar email via Resend.',
+    };
   }
 }

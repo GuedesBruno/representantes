@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,14 @@ import styles from './projetos-modelos.module.css';
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value);
+}
+
+function truncateProductName(name: string, maxLength = 32) {
+  if (name.length <= maxLength) {
+    return name;
+  }
+
+  return `${name.slice(0, maxLength - 1)}…`;
 }
 
 function calcTotal(kit: KitModelo, produtos: ProdutoModelo[]): number {
@@ -58,6 +66,78 @@ function SvgIcon({ type, width = 16, height = 16 }: { type: 'website' | 'catalog
     );
   }
   return null;
+}
+
+function InfoDescriptionTooltip({ text }: { text: string }) {
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState({ left: 12, top: 12, maxWidth: 320, placeBelow: false });
+
+  const updatePosition = () => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const tooltipMaxWidth = Math.min(360, Math.max(240, viewportWidth - 24));
+
+    let left = rect.left + (rect.width / 2) - (tooltipMaxWidth / 2);
+    left = Math.max(12, Math.min(left, viewportWidth - tooltipMaxWidth - 12));
+
+    const placeBelow = rect.top < 170;
+    const top = placeBelow ? rect.bottom + 10 : rect.top - 10;
+
+    setPosition({ left, top, maxWidth: tooltipMaxWidth, placeBelow });
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    updatePosition();
+
+    const handleLayoutChange = () => updatePosition();
+    window.addEventListener('resize', handleLayoutChange);
+    window.addEventListener('scroll', handleLayoutChange, true);
+
+    return () => {
+      window.removeEventListener('resize', handleLayoutChange);
+      window.removeEventListener('scroll', handleLayoutChange, true);
+    };
+  }, [isOpen]);
+
+  return (
+    <span
+      className={styles.infoIconContainer}
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+      onFocus={() => setIsOpen(true)}
+      onBlur={() => setIsOpen(false)}
+    >
+      <button
+        ref={triggerRef}
+        type="button"
+        className={styles.infoIconButton}
+        aria-label="Ver descrição"
+      >
+        <SvgIcon type="info" width={22} height={22} />
+      </button>
+
+      {isOpen && (
+        <span
+          className={`${styles.infoTooltip} ${position.placeBelow ? styles.infoTooltipBelow : styles.infoTooltipAbove}`}
+          role="tooltip"
+          style={{
+            left: `${position.left}px`,
+            top: `${position.top}px`,
+            maxWidth: `${position.maxWidth}px`,
+            transform: position.placeBelow ? 'none' : 'translateY(-100%)',
+          }}
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  );
 }
 
 function getVideoEmbedUrl(rawUrl: string): string | null {
@@ -197,8 +277,12 @@ function KitDetailModal({
         throw new Error(data.error ?? 'Erro ao solicitar cotação.');
       }
 
-      setRequestSuccess('Cotação solicitada com sucesso! Em breve o vendedor entrará em contato.');
-      setTimeout(() => onClose(), 2000);
+      if (data.emailSent) {
+        setRequestSuccess('Cotação solicitada com sucesso! Em breve o vendedor entrará em contato.');
+      } else {
+        setRequestError(data.message ?? 'Cotação registrada, mas o email para o vendedor não foi enviado.');
+      }
+      setTimeout(() => onClose(), 2500);
     } catch (err) {
       setRequestError(err instanceof Error ? err.message : 'Erro ao solicitar cotação.');
     } finally {
@@ -270,7 +354,9 @@ function KitDetailModal({
                       <div className={styles.infoColumn}>
                         {/* Line 1: Name */}
                         <div className={styles.nameQtyRow}>
-                          <span className={styles.productTreeName}>{item.nomeProduto}</span>
+                          <span className={styles.productTreeName} title={item.nomeProduto}>
+                            {truncateProductName(item.nomeProduto)}
+                          </span>
                         </div>
 
                         {/* Line 2: Buttons */}
@@ -323,12 +409,7 @@ function KitDetailModal({
                             </a>
                           )}
                           {produto?.descricaoCurta && (
-                            <div className={styles.infoIconContainer} title="Descrição">
-                              <SvgIcon type="info" width={22} height={22} />
-                              <div className={styles.infoTooltip}>
-                                {produto.descricaoCurta}
-                              </div>
-                            </div>
+                            <InfoDescriptionTooltip text={produto.descricaoCurta} />
                           )}
                         </div>
                       </div>
@@ -540,12 +621,10 @@ function buildPlanText(plan: ReturnType<typeof calculateInvestmentPlan>, baseOpt
 function InvestmentKitDetail({
   kit,
   produtos,
-  onBack,
   onOpenKitModal,
 }: {
   kit: KitModelo;
   produtos: ProdutoModelo[];
-  onBack: () => void;
   onOpenKitModal: () => void;
 }) {
   const total = calcTotal(kit, produtos);
@@ -554,18 +633,12 @@ function InvestmentKitDetail({
 
   return (
     <div className={styles.investmentDetailWrap}>
-      <div className={styles.investmentDetailHeader}>
-        <h4 className={styles.tableTitle}>Detalhamento do Kit</h4>
-        <button type="button" className={styles.btnSecondary} onClick={onBack}>
-          Voltar para faixas
-        </button>
-      </div>
-
       <div className={styles.investmentDetailBody}>
-        <ul className={styles.treeList}>
+        <ul
+          className={`${styles.treeList} ${kit.itens.length > 8 ? styles.treeListThreeColumns : styles.treeListTwoColumns}`}
+        >
           {kit.itens.map((item) => {
             const produto = produtos.find((p) => p.id === item.produtoId);
-            const subtotal = (produto?.precoUnitario ?? 0) * item.quantidade;
             const videoEmbedUrl = produto?.videoUrl ? getVideoEmbedUrl(produto.videoUrl) : null;
 
             return (
@@ -587,8 +660,9 @@ function InvestmentKitDetail({
 
                   <div className={styles.infoColumn}>
                     <div className={styles.nameQtyRow}>
-                      <span className={styles.productTreeName}>{item.nomeProduto}</span>
-                      <span className={styles.investmentDetailSubtotal}>{formatCurrency(subtotal)}</span>
+                      <span className={styles.productTreeName} title={item.nomeProduto}>
+                        {item.nomeProduto}
+                      </span>
                     </div>
 
                     <div className={styles.productLinks}>
@@ -640,10 +714,7 @@ function InvestmentKitDetail({
                         </a>
                       )}
                       {produto?.descricaoCurta && (
-                        <div className={styles.infoIconContainer} title="Descrição">
-                          <SvgIcon type="info" width={22} height={22} />
-                          <div className={styles.infoTooltip}>{produto.descricaoCurta}</div>
-                        </div>
+                        <InfoDescriptionTooltip text={produto.descricaoCurta} />
                       )}
                     </div>
                   </div>
@@ -965,20 +1036,31 @@ function ProjetosModelosPageContent() {
 
                 <section className={styles.investmentBandsSide}>
                   <div className={styles.panelHeader}>
-                    <h4 className={styles.tableTitle}>{selectedBandKit ? 'Tabela de Detalhamento' : 'Selecione o Kit'}</h4>
-                    <button
-                      type="button"
-                      className={styles.closeBtn}
-                      onClick={() => {
-                        setInvestmentPanel(null);
-                        setSelectedBandKit(null);
-                      }}
-                      aria-label="Fechar painel de investimento"
-                    >
-                      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      </svg>
-                    </button>
+                    <h4 className={styles.tableTitle}>{selectedBandKit ? 'Detalhamento do Kit' : 'Selecione o Kit'}</h4>
+                    <div className={styles.panelHeaderActions}>
+                      {selectedBandKit && (
+                        <button
+                          type="button"
+                          className={`${styles.btnSecondary} ${styles.panelHeaderBackBtn}`}
+                          onClick={() => setSelectedBandKit(null)}
+                        >
+                          Voltar para faixas
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className={styles.closeBtn}
+                        onClick={() => {
+                          setInvestmentPanel(null);
+                          setSelectedBandKit(null);
+                        }}
+                        aria-label="Fechar painel de investimento"
+                      >
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
                   {!selectedBandKit ? (
@@ -1002,12 +1084,14 @@ function ProjetosModelosPageContent() {
                             className={styles.investmentBandStrip}
                             onClick={() => setSelectedBandKit(option.kit)}
                           >
-                            <span className={styles.investmentBandTitle}>{LEVEL_LABELS[level]}</span>
-                            <span className={styles.investmentBandValue}>{formatCurrency(option.total)} por kit</span>
+                            <div className={styles.investmentBandTopRow}>
+                              <span className={styles.investmentBandTitle}>{LEVEL_LABELS[level]}</span>
+                              <div className={styles.investmentBandValueBlock}>
+                                <span className={styles.investmentBandValue}>{formatCurrency(option.total)}</span>
+                                <span className={styles.investmentBandUnit}>POR KIT</span>
+                              </div>
+                            </div>
                             <span className={styles.investmentBandText}>{buildPlanText(plan, option)}</span>
-                            {plan.remaining > 0 && (
-                              <span className={styles.investmentBandRemainder}>Sobra estimada: {formatCurrency(plan.remaining)}</span>
-                            )}
                           </button>
                         );
                       })}
@@ -1016,8 +1100,11 @@ function ProjetosModelosPageContent() {
                     <InvestmentKitDetail
                       kit={selectedBandKit}
                       produtos={produtos}
-                      onBack={() => setSelectedBandKit(null)}
-                      onOpenKitModal={() => setModalKit(selectedBandKit)}
+                      onOpenKitModal={() => {
+                        setModalKit(selectedBandKit);
+                        setInvestmentPanel(null);
+                        setSelectedBandKit(null);
+                      }}
                     />
                   )}
                 </section>
