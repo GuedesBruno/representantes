@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -219,29 +219,11 @@ function SidebarContent() {
   );
 }
 
-function DashboardShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+function UsuariosHeaderActions({ pathname }: { pathname: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isProjetosModelos = pathname === '/dashboard/projetos-modelos';
-  const isAdminUsuarios = pathname === '/dashboard/admin/usuarios';
   const usersSearchValue = searchParams.get('q') ?? '';
   const isInviteOpen = searchParams.get('invite') === '1';
-  const [mode, setModeState] = useState<'investimento' | 'estrutura'>('investimento');
-  const pageTitle = isProjetosModelos
-    ? (mode === 'investimento' ? 'Selecione o Investimento' : 'Selecione a Estrutura')
-    : (PAGE_TITLES[pathname] ?? 'Dashboard');
-
-  useEffect(() => {
-    if (!isProjetosModelos) return;
-    const params = new URLSearchParams(window.location.search);
-    setModeState(params.get('modo') === 'estrutura' ? 'estrutura' : 'investimento');
-  }, [isProjetosModelos, pathname]);
-
-  const setMode = (nextMode: 'investimento' | 'estrutura') => {
-    setModeState(nextMode);
-    router.replace(`/dashboard/projetos-modelos?modo=${nextMode}`);
-  };
 
   const updateUsuariosQuery = (next: { q?: string; invite?: '1' | '' }) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -265,6 +247,47 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname);
+  };
+
+  return (
+    <div className={styles.headerActions}>
+      <input
+        type="search"
+        className={styles.headerSearchInput}
+        placeholder="Buscar por e-mail, nome, região…"
+        value={usersSearchValue}
+        onChange={(event) => updateUsuariosQuery({ q: event.target.value })}
+      />
+      <button
+        type="button"
+        className={styles.headerInviteButton}
+        onClick={() => updateUsuariosQuery({ invite: isInviteOpen ? '' : '1' })}
+      >
+        {isInviteOpen ? 'Fechar convite' : 'Convidar usuário'}
+      </button>
+    </div>
+  );
+}
+
+function DashboardShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const isProjetosModelos = pathname === '/dashboard/projetos-modelos';
+  const isAdminUsuarios = pathname === '/dashboard/admin/usuarios';
+  const [mode, setModeState] = useState<'investimento' | 'estrutura'>('investimento');
+  const pageTitle = isProjetosModelos
+    ? (mode === 'investimento' ? 'Selecione o Investimento' : 'Selecione a Estrutura')
+    : (PAGE_TITLES[pathname] ?? 'Dashboard');
+
+  useEffect(() => {
+    if (!isProjetosModelos) return;
+    const params = new URLSearchParams(window.location.search);
+    setModeState(params.get('modo') === 'estrutura' ? 'estrutura' : 'investimento');
+  }, [isProjetosModelos, pathname]);
+
+  const setMode = (nextMode: 'investimento' | 'estrutura') => {
+    setModeState(nextMode);
+    router.replace(`/dashboard/projetos-modelos?modo=${nextMode}`);
   };
 
   return (
@@ -295,22 +318,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
           {isAdminUsuarios && !isProjetosModelos && (
-            <div className={styles.headerActions}>
-              <input
-                type="search"
-                className={styles.headerSearchInput}
-                placeholder="Buscar por e-mail, nome, região…"
-                value={usersSearchValue}
-                onChange={(event) => updateUsuariosQuery({ q: event.target.value })}
-              />
-              <button
-                type="button"
-                className={styles.headerInviteButton}
-                onClick={() => updateUsuariosQuery({ invite: isInviteOpen ? '' : '1' })}
-              >
-                {isInviteOpen ? 'Fechar convite' : 'Convidar usuário'}
-              </button>
-            </div>
+            <Suspense fallback={null}>
+              <UsuariosHeaderActions pathname={pathname} />
+            </Suspense>
           )}
         </header>
 

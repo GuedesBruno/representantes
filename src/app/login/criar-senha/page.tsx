@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
@@ -20,7 +20,7 @@ function mapResetError(code: string) {
   return messages[code] ?? 'Não foi possível concluir a criação da senha.';
 }
 
-export default function CriarSenhaPage() {
+function CriarSenhaPageInner() {
   const searchParams = useSearchParams();
   const oobCode = searchParams.get('oobCode') ?? '';
 
@@ -153,5 +153,13 @@ export default function CriarSenhaPage() {
         )}
       </section>
     </main>
+  );
+}
+
+export default function CriarSenhaPage() {
+  return (
+    <Suspense fallback={null}>
+      <CriarSenhaPageInner />
+    </Suspense>
   );
 }

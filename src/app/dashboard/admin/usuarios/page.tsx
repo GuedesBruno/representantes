@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -75,7 +75,7 @@ const DEFAULT_INVITE = {
   emailVendedor: '',
 };
 
-export default function AdminUsuariosPage() {
+function AdminUsuariosPageInner() {
   const { user, isAdmin, loading, refreshClaims } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -658,5 +658,13 @@ export default function AdminUsuariosPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+export default function AdminUsuariosPage() {
+  return (
+    <Suspense fallback={<div className={styles.loading}>Carregando usuários…</div>}>
+      <AdminUsuariosPageInner />
+    </Suspense>
   );
 }
