@@ -50,11 +50,6 @@
   background: var(--color-white);
 }
 
-.helper {
-  color: var(--color-gray-500);
-  font-size: var(--font-size-xs);
-}
-
 .submitButton {
   border: none;
   border-radius: var(--radius-md);
@@ -73,15 +68,6 @@
 .submitButton:disabled {
   opacity: 0.65;
   cursor: not-allowed;
-}
-
-.adminOnly {
-  border: 1px solid var(--color-warning-border);
-  background: var(--color-warning-bg);
-  color: var(--color-warning-text);
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--font-size-sm);
 }
 
 .message {
@@ -127,34 +113,8 @@
   flex-direction: column;
 }
 
-.cardHeader {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-gray-200);
-  background: var(--color-white);
-}
-
-.previewWrap {
-  height: 420px;
-  background: var(--color-gray-100);
-  border-bottom: 1px solid var(--color-gray-200);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 14px;
-}
-
-.previewImage,
-.previewFrame {
-  width: auto;
-  max-width: 100%;
-  height: 100%;
-  max-height: 100%;
-  border: 0;
-  object-fit: contain;
-}
-
 .previewFallback {
-  height: 100%;
+  min-height: 220px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -164,6 +124,8 @@
   text-align: center;
   padding: var(--space-4);
   font-size: var(--font-size-sm);
+  background: var(--color-gray-100);
+  border-bottom: 1px solid var(--color-gray-200);
 }
 
 .cardBody {

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -145,10 +146,7 @@ function SidebarContent() {
     <>
       <div className={styles.sidebarHeader}>
         <div className={styles.sidebarLogoIcon} aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="5" r="2.5" fill="white" />
-            <path d="M12 8.5C9.5 8.5 7.5 10.5 7.5 13v4.5h2V13c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v4.5h2V13C16.5 10.5 14.5 8.5 12 8.5z" fill="white" />
-          </svg>
+          <Image src="/logo_teca.png" alt="Logo Tecassistiva" width={32} height={32} style={{ objectFit: 'contain' }} />
         </div>
         <div>
           <div className={styles.sidebarLogoText}>Tecassistiva</div>

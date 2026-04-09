@@ -25,6 +25,20 @@ function truncateProductName(name: string, maxLength = 32) {
   return `${name.slice(0, maxLength - 1)}…`;
 }
 
+function normalizeExternalUrl(rawUrl: string): string | null {
+  const input = rawUrl.trim();
+  if (!input) return null;
+
+  const withProtocol = /^https?:\/\//i.test(input) ? input : `https://${input}`;
+  try {
+    const parsed = new URL(withProtocol);
+    if (!parsed.hostname) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 function Tooltip({ text }: { text: string }) {
   return (
     <span className={styles.tooltipWrapper} aria-label={text}>
@@ -231,6 +245,8 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
             <tbody>
               {itens.map((item) => {
                 const produto = produtos.find((p) => p.id === item.produtoId);
+                const catalogoUrl = normalizeExternalUrl(produto?.catalogoUrl || produto?.fotoUrl || '');
+                const videoUrl = normalizeExternalUrl(produto?.videoUrl || '');
                 return (
                   <tr key={item.produtoId} className={styles.tr}>
                     {/* Photo + name + tooltip */}
@@ -274,9 +290,9 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
                     {/* Product links - catalog, video, website */}
                     <td className={styles.td} style={{ textAlign: 'center' }}>
                       <div className={styles.productLinksContainer}>
-                        {produto?.fotoUrl && (
+                        {catalogoUrl && (
                           <a
-                            href={produto.fotoUrl}
+                            href={catalogoUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={styles.productLink}
@@ -285,7 +301,19 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
                             📄 Catálogo
                           </a>
                         )}
-                        <span className={styles.productLink} title="Vídeo em breve">🎥 Vídeo</span>
+                        {videoUrl ? (
+                          <a
+                            href={videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.productLink}
+                            title="Abrir vídeo"
+                          >
+                            🎥 Vídeo
+                          </a>
+                        ) : (
+                          <span className={styles.productLink} title="Sem vídeo cadastrado">🎥 Vídeo</span>
+                        )}
                         {produto?.linkSite && (
                           <a
                             href={produto.linkSite}

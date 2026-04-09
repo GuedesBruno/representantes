@@ -41,24 +41,42 @@ function formatSize(bytes: number) {
   return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-function FolhetoPreview({ item }: { item: Folheto }) {
-  if (item.contentType.startsWith('image/')) {
-    return (
-      <img
-        className={styles.previewImage}
-        src={item.arquivoUrl}
-        alt={`Prévia do folheto ${item.nome}`}
-        loading="lazy"
-      />
-    );
+function getCloudinaryCloudNameFromUrl(url: string): string | null {
+  const match = url.match(/res\.cloudinary\.com\/([^/]+)/i);
+  return match?.[1] ?? null;
+}
+
+function getFolhetoPreviewUrl(item: Folheto): string | null {
+  if (!item.cloudinaryPublicId) {
+    return item.contentType.startsWith('image/') ? item.arquivoUrl : null;
+  }
+
+  const cloudName = getCloudinaryCloudNameFromUrl(item.arquivoUrl);
+  if (!cloudName) {
+    return item.contentType.startsWith('image/') ? item.arquivoUrl : null;
   }
 
   if (item.contentType === 'application/pdf') {
+    return `https://res.cloudinary.com/${cloudName}/image/upload/pg_1,f_auto,q_auto,w_900/${item.cloudinaryPublicId}.jpg`;
+  }
+
+  if (item.contentType.startsWith('image/')) {
+    return `https://res.cloudinary.com/${cloudName}/image/upload/f_auto,q_auto,w_900/${item.cloudinaryPublicId}`;
+  }
+
+  return null;
+}
+
+function FolhetoPreview({ item }: { item: Folheto }) {
+  const previewUrl = getFolhetoPreviewUrl(item);
+
+  if (previewUrl) {
     return (
-      <iframe
-        title={`Prévia do folheto ${item.nome}`}
-        src={`${item.arquivoUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-        className={styles.previewFrame}
+      <img
+        className={styles.previewImage}
+        src={previewUrl}
+        alt={`Prévia do folheto ${item.nome}`}
+        loading="lazy"
       />
     );
   }
@@ -219,7 +237,6 @@ export default function FolhetosPage() {
                 accept="application/pdf,image/*"
                 onChange={handleFileChange}
               />
-              <p className={styles.helper}>Formatos aceitos para miniatura: PDF e imagens.</p>
             </div>
 
             <button className={styles.submitButton} type="submit" disabled={submitState === 'loading'}>
@@ -248,13 +265,15 @@ export default function FolhetosPage() {
             const criadoEm = item.criadoEm?.toDate?.();
             return (
               <article key={item.id} className={styles.card}>
+                <div className={styles.cardHeader}>
+                  <h3 className={styles.cardTitle}>{item.nome}</h3>
+                </div>
+
                 <div className={styles.previewWrap}>
                   <FolhetoPreview item={item} />
                 </div>
 
                 <div className={styles.cardBody}>
-                  <h3 className={styles.cardTitle}>{item.nome}</h3>
-                  <p className={styles.cardMeta}>{item.arquivoNome} · {formatSize(item.tamanhoBytes)}</p>
                   <p className={styles.cardMeta}>Publicado em {formatDate(criadoEm)}</p>
 
                   <a

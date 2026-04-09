@@ -140,16 +140,28 @@ function InfoDescriptionTooltip({ text }: { text: string }) {
   );
 }
 
-function getVideoEmbedUrl(rawUrl: string): string | null {
+function normalizeExternalVideoUrl(rawUrl: string): string | null {
   const input = rawUrl.trim();
   if (!input) return null;
 
-  let parsed: URL;
+  const withProtocol = /^https?:\/\//i.test(input) ? input : `https://${input}`;
+
   try {
-    parsed = new URL(input);
+    const parsed = new URL(withProtocol);
+    if (!parsed.hostname) return null;
+    return parsed.toString();
   } catch {
     return null;
   }
+}
+
+function getVideoEmbedUrl(rawUrl: string): string | null {
+  const normalizedUrl = normalizeExternalVideoUrl(rawUrl);
+  if (!normalizedUrl) {
+    return null;
+  }
+
+  const parsed = new URL(normalizedUrl);
 
   const host = parsed.hostname.toLowerCase();
   const path = parsed.pathname;
@@ -159,29 +171,43 @@ function getVideoEmbedUrl(rawUrl: string): string | null {
 
     if (host.includes('youtu.be')) {
       videoId = path.split('/').filter(Boolean)[0] ?? '';
+    } else if (path.startsWith('/live/')) {
+      videoId = path.split('/')[2] ?? '';
     } else if (path.startsWith('/shorts/')) {
       videoId = path.split('/')[2] ?? '';
     } else if (path.startsWith('/embed/')) {
+      videoId = path.split('/')[2] ?? '';
+    } else if (path.startsWith('/watch/')) {
       videoId = path.split('/')[2] ?? '';
     } else {
       videoId = parsed.searchParams.get('v') ?? '';
     }
 
     if (!videoId) return null;
-    return `https://www.youtube-nocookie.com/embed/${videoId}`;
+    return `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1`;
   }
 
   if (host.includes('vimeo.com')) {
     const segments = path.split('/').filter(Boolean);
-    const numeric = [...segments].reverse().find((segment) => /^\d+$/.test(segment));
-    if (!numeric) return null;
-    return `https://player.vimeo.com/video/${numeric}`;
+    const numericIndex = segments.findIndex((segment) => /^\d+$/.test(segment));
+    if (numericIndex < 0) return null;
+
+    const videoId = segments[numericIndex];
+    const pathHash = segments[numericIndex + 1] ?? '';
+    const queryHash = parsed.searchParams.get('h') ?? '';
+    const hash = queryHash || (/^[a-zA-Z0-9]+$/.test(pathHash) ? pathHash : '');
+
+    if (hash) {
+      return `https://player.vimeo.com/video/${videoId}?h=${hash}`;
+    }
+
+    return `https://player.vimeo.com/video/${videoId}`;
   }
 
   return null;
 }
 
-function VideoModal({ embedUrl, title, onClose }: { embedUrl: string; title: string; onClose: () => void }) {
+function VideoModal({ embedUrl, sourceUrl, title, onClose }: { embedUrl: string; sourceUrl: string; title: string; onClose: () => void }) {
   return (
     <div className={styles.imageLightbox} onClick={onClose}>
       <div className={`${styles.imageLightboxContent} ${styles.videoLightboxContent}`} onClick={(e) => e.stopPropagation()}>
@@ -197,18 +223,18 @@ function VideoModal({ embedUrl, title, onClose }: { embedUrl: string; title: str
           src={embedUrl}
           title={title}
           className={styles.videoLightboxFrame}
-          allow="fullscreen"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
           loading="lazy"
-          referrerPolicy="strict-origin-when-cross-origin"
+          referrerPolicy="origin-when-cross-origin"
           allowFullScreen
         />
         <a
-          href={embedUrl}
+          href={sourceUrl}
           target="_blank"
           rel="noopener noreferrer"
           className={styles.videoFallbackLink}
         >
-          Se o vídeo não carregar, clique aqui para abrir em nova aba.
+          Clique aqui para abrir em nova aba.
         </a>
       </div>
     </div>
@@ -219,22 +245,32 @@ function KitDetailModal({
   kit,
   produtos,
   user,
+  projectUnits = 1,
   initialCustomizing = false,
   onClose,
 }: {
   kit: KitModelo;
   produtos: ProdutoModelo[];
   user: any;
+  projectUnits?: number;
   initialCustomizing?: boolean;
   onClose: () => void;
 }) {
+  const normalizedProjectUnits = Math.max(1, projectUnits);
+  const [detailMode, setDetailMode] = useState<'kit' | 'project'>('kit');
   const [isCustomizing, setIsCustomizing] = useState(initialCustomizing);
   const [itens, setItens] = useState<EditableKitItem[]>(kit.itens.map((i) => ({ ...i })));
   const [requestError, setRequestError] = useState('');
   const [requestSuccess, setRequestSuccess] = useState('');
   const [requesting, setRequesting] = useState(false);
   const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
-  const [videoModal, setVideoModal] = useState<{ embedUrl: string; title: string } | null>(null);
+  const [videoModal, setVideoModal] = useState<{ embedUrl: string; sourceUrl: string; title: string } | null>(null);
+
+  const projectItens = useMemo(
+    () => itens.map((i) => ({ ...i, quantidade: i.quantidade * normalizedProjectUnits })),
+    [itens, normalizedProjectUnits]
+  );
+  const displayedItens = detailMode === 'project' ? projectItens : itens;
 
   function setQuantidade(produtoId: string, val: string) {
     const n = Math.max(1, parseInt(val, 10) || 1);
@@ -247,7 +283,19 @@ function KitDetailModal({
     setItens(kit.itens.map((i) => ({ ...i })));
   }
 
-  const totalGeral = itens.reduce((acc, item) => {
+  useEffect(() => {
+    setItens(kit.itens.map((i) => ({ ...i })));
+    setIsCustomizing(initialCustomizing);
+    setDetailMode('kit');
+  }, [kit, initialCustomizing]);
+
+  useEffect(() => {
+    if (detailMode === 'project') {
+      setIsCustomizing(false);
+    }
+  }, [detailMode]);
+
+  const totalGeral = projectItens.reduce((acc, item) => {
     const p = produtos.find((x) => x.id === item.produtoId);
     return acc + (p ? p.precoUnitario * item.quantidade : 0);
   }, 0);
@@ -273,7 +321,7 @@ function KitDetailModal({
         body: JSON.stringify({
           kitId: kit.id,
           kitNome: kit.nome,
-          itens: itens.map((i) => ({
+          itens: projectItens.map((i) => ({
             produtoId: i.produtoId,
             nomeProduto: i.nomeProduto,
             quantidade: i.quantidade,
@@ -310,6 +358,7 @@ function KitDetailModal({
           <div className={`${styles.kitCard} ${styles.kitCardPreview}`}>
             <h3 className={styles.openedCardTitle}>{kit.nome}</h3>
             <div className={styles.openedCardMeta}>
+              <span className={styles.openedCardCount}>{normalizedProjectUnits} {normalizedProjectUnits === 1 ? 'kit' : 'kits'}</span>
               <span className={styles.openedCardCount}>{kit.itens.length} produto(s)</span>
               <span className={styles.openedCardCategory}>{kit.categoria}</span>
             </div>
@@ -318,25 +367,47 @@ function KitDetailModal({
 
         <div className={styles.detailTreeSide}>
           <div className={styles.panelHeader}>
-            <h4 className={styles.tableTitle}>Produtos do projeto</h4>
-            <button
-              type="button"
-              className={styles.closeBtn}
-              onClick={onClose}
-              aria-label="Fechar painel"
-            >
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </button>
+            <div className={styles.detailModeToggle} role="tablist" aria-label="Modo do detalhamento">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailMode === 'kit'}
+                className={`${styles.detailModeButton} ${detailMode === 'kit' ? styles.detailModeButtonActive : ''}`}
+                onClick={() => setDetailMode('kit')}
+              >
+                Detalhamento do Kit
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailMode === 'project'}
+                className={`${styles.detailModeButton} ${detailMode === 'project' ? styles.detailModeButtonActive : ''}`}
+                onClick={() => setDetailMode('project')}
+              >
+                Detalhamento do Projeto
+              </button>
+            </div>
+            <div className={styles.panelHeaderActions}>
+              <button
+                type="button"
+                className={styles.closeBtn}
+                onClick={onClose}
+                aria-label="Fechar painel"
+              >
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div className={styles.panelBody}>
             <div className={styles.productsTree}>
-            <ul className={`${styles.treeList} ${itens.length >= 8 ? styles.treeListTwoColumns : ''}`}>
-              {itens.map((item) => {
+            <ul className={`${styles.treeList} ${displayedItens.length >= 8 ? styles.treeListTwoColumns : ''}`}>
+              {displayedItens.map((item) => {
                 const produto = produtos.find((p) => p.id === item.produtoId);
                 const videoEmbedUrl = produto?.videoUrl ? getVideoEmbedUrl(produto.videoUrl) : null;
+                const videoSourceUrl = produto?.videoUrl ? normalizeExternalVideoUrl(produto.videoUrl) : null;
                 return (
                   <li key={item.produtoId} className={styles.treeItem}>
                     <div className={styles.treeItemWrapper}>
@@ -385,9 +456,9 @@ function KitDetailModal({
                               Website
                             </a>
                           )}
-                          {produto?.fotoUrl && (
+                          {(produto?.catalogoUrl || produto?.fotoUrl) && (
                             <a
-                              href={produto.fotoUrl}
+                              href={produto.catalogoUrl || produto.fotoUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={styles.productLinkIcon}
@@ -397,20 +468,20 @@ function KitDetailModal({
                               Catálogo
                             </a>
                           )}
-                          {produto?.videoUrl && videoEmbedUrl && (
+                          {videoSourceUrl && videoEmbedUrl && (
                             <button
                               type="button"
                               className={styles.productLinkIcon}
                               title="Abrir vídeo"
-                              onClick={() => setVideoModal({ embedUrl: videoEmbedUrl, title: item.nomeProduto })}
+                              onClick={() => setVideoModal({ embedUrl: videoEmbedUrl, sourceUrl: videoSourceUrl, title: item.nomeProduto })}
                             >
                               <SvgIcon type="video" width={14} height={14} />
                               Vídeo
                             </button>
                           )}
-                          {produto?.videoUrl && !videoEmbedUrl && (
+                          {videoSourceUrl && !videoEmbedUrl && (
                             <a
-                              href={produto.videoUrl}
+                              href={videoSourceUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={styles.productLinkIcon}
@@ -428,7 +499,7 @@ function KitDetailModal({
                     </div>
 
                     {/* Edit Quantity Mode */}
-                    {isCustomizing && (
+                    {isCustomizing && detailMode === 'kit' && (
                       <div className={styles.productEditRow}>
                         <label className={styles.qtyEditLabel}>Quantidade:</label>
                         <input
@@ -461,6 +532,7 @@ function KitDetailModal({
                       type="button"
                       className={styles.btnSecondary}
                       onClick={() => setIsCustomizing(true)}
+                      disabled={detailMode === 'project'}
                     >
                       Personalizar Projeto
                     </button>
@@ -530,6 +602,7 @@ function KitDetailModal({
       {videoModal && (
         <VideoModal
           embedUrl={videoModal.embedUrl}
+          sourceUrl={videoModal.sourceUrl}
           title={`Vídeo do produto ${videoModal.title}`}
           onClose={() => setVideoModal(null)}
         />
@@ -656,7 +729,7 @@ function InvestmentKitDetail({
   }, 0);
   const projectTotal = (total * Math.max(1, baseKitUnits)) + extraProjectTotal;
   const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
-  const [videoModal, setVideoModal] = useState<{ embedUrl: string; title: string } | null>(null);
+  const [videoModal, setVideoModal] = useState<{ embedUrl: string; sourceUrl: string; title: string } | null>(null);
 
   useEffect(() => {
     setItens(kit.itens.map((item) => ({ ...item })));
@@ -693,7 +766,7 @@ function InvestmentKitDetail({
       key: extra.kit.id,
       name: extra.kit.nome,
       qty: extra.qty,
-      items: detailMode === 'project' ? multiplyItemsForProject(extra.kit.itens, extra.qty) : extra.kit.itens,
+      items: detailMode === 'project' ? multiplyItemsForProject(extra.kit.itens, Math.max(1, extra.qty)) : extra.kit.itens,
       editable: false,
     })),
   ];
@@ -706,6 +779,7 @@ function InvestmentKitDetail({
   ) {
     const produto = produtos.find((p) => p.id === item.produtoId);
     const videoEmbedUrl = produto?.videoUrl ? getVideoEmbedUrl(produto.videoUrl) : null;
+    const videoSourceUrl = produto?.videoUrl ? normalizeExternalVideoUrl(produto.videoUrl) : null;
 
     return (
       <li key={`${item.produtoId}-${item.quantidade}-${editable ? 'editable' : 'fixed'}`} className={styles.treeItem}>
@@ -744,9 +818,9 @@ function InvestmentKitDetail({
                   Website
                 </a>
               )}
-              {produto?.fotoUrl && (
+              {(produto?.catalogoUrl || produto?.fotoUrl) && (
                 <a
-                  href={produto.fotoUrl}
+                  href={produto.catalogoUrl || produto.fotoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={styles.productLinkIcon}
@@ -756,20 +830,20 @@ function InvestmentKitDetail({
                   Catálogo
                 </a>
               )}
-              {produto?.videoUrl && videoEmbedUrl && (
+              {videoSourceUrl && videoEmbedUrl && (
                 <button
                   type="button"
                   className={styles.productLinkIcon}
                   title="Abrir vídeo"
-                  onClick={() => setVideoModal({ embedUrl: videoEmbedUrl, title: item.nomeProduto })}
+                  onClick={() => setVideoModal({ embedUrl: videoEmbedUrl, sourceUrl: videoSourceUrl, title: item.nomeProduto })}
                 >
                   <SvgIcon type="video" width={14} height={14} />
                   Vídeo
                 </button>
               )}
-              {produto?.videoUrl && !videoEmbedUrl && (
+              {videoSourceUrl && !videoEmbedUrl && (
                 <a
-                  href={produto.videoUrl}
+                  href={videoSourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={styles.productLinkIcon}
@@ -898,6 +972,7 @@ function InvestmentKitDetail({
       {videoModal && (
         <VideoModal
           embedUrl={videoModal.embedUrl}
+          sourceUrl={videoModal.sourceUrl}
           title={`Vídeo do produto ${videoModal.title}`}
           onClose={() => setVideoModal(null)}
         />
@@ -925,18 +1000,24 @@ function ProjetosModelosPageContent() {
   });
   const [investmentPanel, setInvestmentPanel] = useState<{ category: FixedCategory; budget: number } | null>(null);
   const [selectedBandKit, setSelectedBandKit] = useState<KitModelo | null>(null);
+  const [structureKitUnits, setStructureKitUnits] = useState<Record<FixedCategory, number>>({
+    Educação: 1,
+    Biblioteca: 1,
+  });
   const [showCustomizeForm, setShowCustomizeForm] = useState(false);
   const [customCategory, setCustomCategory] = useState<FixedCategory>('Educação');
   const [customLevel, setCustomLevel] = useState<KitLevel>('basico');
   const [customQuantity, setCustomQuantity] = useState(1);
 
   const [modalKit, setModalKit] = useState<KitModelo | null>(null);
+  const [modalProjectUnits, setModalProjectUnits] = useState(1);
   const [modalInitialCustomizing, setModalInitialCustomizing] = useState(false);
   const [detailMode, setDetailMode] = useState<'kit' | 'project'>('kit');
   const mode: ViewMode = searchParams.get('modo') === 'estrutura' ? 'estrutura' : 'investimento';
 
-  function openKitModal(kit: KitModelo, initialCustomizing = false) {
+  function openKitModal(kit: KitModelo, initialCustomizing = false, projectUnits = 1) {
     setModalInitialCustomizing(initialCustomizing);
+    setModalProjectUnits(Math.max(1, projectUnits));
     setModalKit(kit);
   }
 
@@ -1150,11 +1231,27 @@ function ProjetosModelosPageContent() {
                     </div>
                   ) : (
                     <div className={styles.structureCards}>
+                      <div className={styles.structureQuantityRow}>
+                        <label className={styles.structureQuantityLabel} htmlFor={`structure-qty-${fixedCategory}`}>
+                          Quantos kits?
+                        </label>
+                        <input
+                          id={`structure-qty-${fixedCategory}`}
+                          type="number"
+                          min={1}
+                          className={styles.structureQuantityInput}
+                          value={structureKitUnits[fixedCategory]}
+                          onChange={(e) => {
+                            const nextValue = Math.max(1, Number(e.target.value) || 1);
+                            setStructureKitUnits((prev) => ({ ...prev, [fixedCategory]: nextValue }));
+                          }}
+                        />
+                      </div>
                       {LEVELS.map((level) => {
                         const option = kitsByCategory[fixedCategory][level];
                         if (!option) {
                           return (
-                            <div key={`${fixedCategory}-${level}`} className={styles.structureCardMuted}>
+                            <div key={`${fixedCategory}-${level}`} className={`${styles.valueCard} ${styles.structureCardMuted}`}>
                               {LEVEL_LABELS[level]} indisponível
                             </div>
                           );
@@ -1164,26 +1261,13 @@ function ProjetosModelosPageContent() {
                           <button
                             key={option.kit.id}
                             type="button"
-                            className={styles.structureCard}
-                            onClick={() => openKitModal(option.kit)}
+                            className={`${styles.valueCard} ${styles.structureCard}`}
+                            onClick={() => openKitModal(option.kit, false, structureKitUnits[fixedCategory])}
                           >
-                            <span className={styles.structureCardLevel}>{LEVEL_LABELS[level]}</span>
                             <span className={styles.structureCardName}>{option.kit.nome}</span>
-                            <span className={styles.structureCardValue}>{formatCurrency(option.total)}</span>
                           </button>
                         );
                       })}
-
-                      <button
-                        type="button"
-                        className={styles.customizeBtn}
-                        onClick={() => {
-                          setShowCustomizeForm((prev) => !prev);
-                          setCustomCategory(fixedCategory);
-                        }}
-                      >
-                        Personalizar
-                      </button>
                     </div>
                   )}
 
@@ -1413,9 +1497,11 @@ function ProjetosModelosPageContent() {
           kit={modalKit}
           produtos={produtos}
           user={user}
+          projectUnits={modalProjectUnits}
           initialCustomizing={modalInitialCustomizing}
           onClose={() => {
             setModalKit(null);
+            setModalProjectUnits(1);
             setModalInitialCustomizing(false);
           }}
         />

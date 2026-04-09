@@ -21,7 +21,9 @@ import styles from './produtos-admin.module.css';
 export interface ProdutoModelo {
   id: string;
   nome: string;
+  nomeAbreviado?: string;
   fotoUrl: string;
+  catalogoUrl?: string;
   fotoPublicId?: string;
   precoUnitario: number;
   linkSite: string;
@@ -35,7 +37,9 @@ type Mode = 'list' | 'form' | 'import';
 
 const EMPTY_FORM = {
   nome: '',
+  nomeAbreviado: '',
   fotoUrl: '',
+  catalogoUrl: '',
   precoUnitario: '',
   linkSite: '',
   videoUrl: '',
@@ -83,11 +87,13 @@ function normalizeRow(values: unknown[]): typeof EMPTY_FORM {
   const toText = (v: unknown) => String(v ?? '').trim();
   return {
     nome: toText(values[0]),
-    fotoUrl: toText(values[1]),
-    precoUnitario: toText(values[2]),
-    linkSite: toText(values[3]),
-    videoUrl: toText(values[4]),
-    descricaoCurta: toText(values[5]),
+    nomeAbreviado: toText(values[1]),
+    fotoUrl: toText(values[2]),
+    catalogoUrl: toText(values[3]),
+    precoUnitario: toText(values[4]),
+    linkSite: toText(values[5]),
+    videoUrl: toText(values[6]),
+    descricaoCurta: toText(values[7]),
   };
 }
 
@@ -193,7 +199,9 @@ export default function ProdutosModelosAdminPage() {
     setEditingId(p.id);
     setForm({
       nome: p.nome,
+      nomeAbreviado: p.nomeAbreviado ?? '',
       fotoUrl: p.fotoUrl,
+      catalogoUrl: p.catalogoUrl ?? '',
       precoUnitario: String(p.precoUnitario),
       linkSite: p.linkSite,
       videoUrl: p.videoUrl ?? '',
@@ -236,7 +244,9 @@ export default function ProdutosModelosAdminPage() {
     try {
       const payload = {
         nome: form.nome.trim(),
+        nomeAbreviado: form.nomeAbreviado.trim(),
         fotoUrl: form.fotoUrl.trim(),
+        catalogoUrl: form.catalogoUrl.trim(),
         precoUnitario: preco,
         linkSite: form.linkSite.trim(),
         videoUrl: form.videoUrl.trim(),
@@ -304,11 +314,18 @@ export default function ProdutosModelosAdminPage() {
             const cols = rawRows[i] ?? [];
             if (cols.every((c) => String(c ?? '').trim() === '')) continue;
             if (cols.length < 5) {
-              setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) ou 6 com videoUrl.`);
+              setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 8 colunas com nomeAbreviado, catalogoUrl e videoUrl.`);
               return;
             }
             if (cols.length === 5) {
-              cols.splice(4, 0, '');
+              cols.splice(1, 0, '');
+              cols.splice(3, 0, '');
+              cols.splice(6, 0, '');
+            } else if (cols.length === 6) {
+              cols.splice(1, 0, '');
+              cols.splice(3, 0, '');
+            } else if (cols.length === 7) {
+              cols.splice(1, 0, '');
             }
             rows.push(normalizeRow(cols));
           }
@@ -343,11 +360,18 @@ export default function ProdutosModelosAdminPage() {
         const cols = parseDelimitedLine(lines[i], delimiter);
         if (cols.every((c) => c.trim() === '')) continue;
         if (cols.length < 5) {
-          setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) ou 6 com videoUrl. Delimitador detectado: "${delimiter}".`);
+          setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 8 colunas com nomeAbreviado, catalogoUrl e videoUrl. Delimitador detectado: "${delimiter}".`);
           return;
         }
         if (cols.length === 5) {
-          cols.splice(4, 0, '');
+          cols.splice(1, 0, '');
+          cols.splice(3, 0, '');
+          cols.splice(6, 0, '');
+        } else if (cols.length === 6) {
+          cols.splice(1, 0, '');
+          cols.splice(3, 0, '');
+        } else if (cols.length === 7) {
+          cols.splice(1, 0, '');
         }
         rows.push(normalizeRow(cols));
       }
@@ -376,7 +400,9 @@ export default function ProdutosModelosAdminPage() {
         }
         await addDoc(collection(db, 'produtos_modelos'), {
           nome: row.nome.trim(),
+          nomeAbreviado: row.nomeAbreviado.trim(),
           fotoUrl: row.fotoUrl.trim(),
+          catalogoUrl: row.catalogoUrl.trim(),
           precoUnitario: preco,
           linkSite: row.linkSite.trim(),
           videoUrl: row.videoUrl.trim(),
@@ -454,8 +480,10 @@ export default function ProdutosModelosAdminPage() {
                   <tr>
                     <th className={styles.th}>Foto</th>
                     <th className={styles.th}>Nome</th>
+                    <th className={styles.th}>Nome Abreviado</th>
                     <th className={styles.th}>Preço Unit.</th>
                     <th className={styles.th}>Link</th>
+                    <th className={styles.th}>Catálogo</th>
                     <th className={styles.th}>Vídeo</th>
                     <th className={styles.th}>Descrição</th>
                     <th className={styles.th}>Ações</th>
@@ -477,6 +505,7 @@ export default function ProdutosModelosAdminPage() {
                         )}
                       </td>
                       <td className={styles.td}><span className={styles.productName}>{p.nome}</span></td>
+                      <td className={styles.td}>{p.nomeAbreviado || '—'}</td>
                       <td className={styles.td}>{formatCurrency(p.precoUnitario)}</td>
                       <td className={styles.td}>
                         {p.linkSite ? (
@@ -487,6 +516,18 @@ export default function ProdutosModelosAdminPage() {
                             className={styles.link}
                           >
                             Ver site
+                          </a>
+                        ) : '—'}
+                      </td>
+                      <td className={styles.td}>
+                        {p.catalogoUrl ? (
+                          <a
+                            href={p.catalogoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.link}
+                          >
+                            Ver catálogo
                           </a>
                         ) : '—'}
                       </td>
@@ -561,6 +602,19 @@ export default function ProdutosModelosAdminPage() {
                 />
               </div>
               <div className={styles.field}>
+                <label className={styles.label} htmlFor="nomeAbreviado">Nome Abreviado</label>
+                <input
+                  id="nomeAbreviado"
+                  name="nomeAbreviado"
+                  type="text"
+                  className={styles.input}
+                  value={form.nomeAbreviado}
+                  onChange={handleChange}
+                  maxLength={80}
+                  autoComplete="off"
+                />
+              </div>
+              <div className={styles.field}>
                 <label className={styles.label} htmlFor="precoUnitario">Preço Unitário (R$) *</label>
                 <input
                   id="precoUnitario"
@@ -607,6 +661,18 @@ export default function ProdutosModelosAdminPage() {
                   type="url"
                   className={styles.input}
                   value={form.linkSite}
+                  onChange={handleChange}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className={`${styles.field} ${styles.fieldFull}`}>
+                <label className={styles.label} htmlFor="catalogoUrl">URL do Catálogo</label>
+                <input
+                  id="catalogoUrl"
+                  name="catalogoUrl"
+                  type="url"
+                  className={styles.input}
+                  value={form.catalogoUrl}
                   onChange={handleChange}
                   placeholder="https://..."
                 />
@@ -659,7 +725,7 @@ export default function ProdutosModelosAdminPage() {
           <h2 className={styles.cardTitle}>Importar Produtos via CSV/XLS/XLSX</h2>
           <p className={styles.importHelper}>
             O arquivo deve ter cabeçalho e as colunas na ordem:{' '}
-            <code>nome, fotoUrl, precoUnitario, linkSite, videoUrl, descricaoCurta</code>
+            <code>nome, nomeAbreviado, fotoUrl, catalogoUrl, precoUnitario, linkSite, videoUrl, descricaoCurta</code>
           </p>
           <p className={styles.importHelper}>
             <a href="/templates/produtos-modelos-exemplo.xlsx" download className={styles.link}>
@@ -689,8 +755,10 @@ export default function ProdutosModelosAdminPage() {
                   <thead>
                     <tr>
                       <th className={styles.th}>Nome</th>
+                      <th className={styles.th}>Nome Abreviado</th>
                       <th className={styles.th}>Preço</th>
                       <th className={styles.th}>Link</th>
+                      <th className={styles.th}>Catálogo</th>
                       <th className={styles.th}>Vídeo</th>
                       <th className={styles.th}>Descrição</th>
                     </tr>
@@ -699,8 +767,10 @@ export default function ProdutosModelosAdminPage() {
                     {csvPreview.slice(0, 10).map((row, i) => (
                       <tr key={i} className={styles.tr}>
                         <td className={styles.td}>{row.nome}</td>
+                        <td className={styles.td}>{row.nomeAbreviado || '—'}</td>
                         <td className={styles.td}>{row.precoUnitario}</td>
                         <td className={styles.td}>{row.linkSite || '—'}</td>
+                        <td className={styles.td}>{row.catalogoUrl || '—'}</td>
                         <td className={styles.td}>{row.videoUrl || '—'}</td>
                         <td className={styles.td}>{row.descricaoCurta || '—'}</td>
                       </tr>

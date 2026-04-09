@@ -71,6 +71,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-height: clamp(560px, 72vh, 820px);
 }
 
 .categoryColumn:first-child {
@@ -90,12 +91,14 @@
     flex-direction: column;
     gap: var(--space-2);
     align-items: center;
+    justify-content: space-between;
+    flex: 1;
   }
 
   .valueCard {
-    width: min(100%, 260px);
+    width: min(100%, 338px);
     min-height: 0;
-    height: clamp(82px, 10.2vh, 112px);
+    height: clamp(106px, 13.2vh, 146px);
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-xl);
     background: var(--color-white);
@@ -104,7 +107,7 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    font-size: clamp(1.06rem, 1.35vw, 1.32rem);
+    font-size: clamp(2.12rem, 2.7vw, 2.64rem);
     font-weight: 700;
     color: var(--color-gray-800);
     cursor: pointer;
@@ -125,7 +128,8 @@
   }
 
   .valueCardCustom {
-    width: min(100%, 260px);
+    width: min(100%, 338px);
+    height: clamp(106px, 13.2vh, 146px);
     font-weight: 600;
     color: var(--color-gray-600);
     font-size: clamp(0.88rem, 1.05vw, 1rem);
@@ -140,11 +144,12 @@
   }
 
   .valueCardInputLabel {
-    font-size: var(--font-size-xs);
+    font-size: clamp(1rem, 1.25vw, 1.18rem);
     font-weight: 700;
     color: var(--color-gray-600);
     text-transform: uppercase;
     letter-spacing: 0.03em;
+    line-height: 1.1;
   }
 
   .valueCardInputRow {
@@ -152,14 +157,15 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px;
+    padding: 12px 12px;
+    min-height: 56px;
     border: 1px solid var(--color-gray-300);
     border-radius: var(--radius-md);
     background: var(--color-white);
   }
 
   .valueCardCurrency {
-    font-size: var(--font-size-sm);
+    font-size: clamp(1rem, 1.2vw, 1.08rem);
     font-weight: 700;
     color: var(--color-gray-600);
   }
@@ -169,7 +175,7 @@
     border: none;
     outline: none;
     background: transparent;
-    font-size: var(--font-size-sm);
+    font-size: clamp(1.02rem, 1.25vw, 1.14rem);
     font-weight: 700;
     color: var(--color-gray-800);
   }
@@ -570,10 +576,12 @@
 
     .investmentSelectedLevel {
       margin: 0;
-      font-size: var(--font-size-lg);
+      font-size: clamp(0.95rem, 1.9vw, 1.96rem);
       font-weight: 800;
       color: var(--color-gray-900);
       text-align: center;
+      line-height: 1.08;
+      overflow-wrap: anywhere;
     }
 
     .investmentMountCount {
@@ -682,10 +690,11 @@
 
     .investmentKitColumnTitle {
       margin: 0;
-      font-size: var(--font-size-sm);
+      font-size: clamp(1.08rem, 1.7vw, 2rem);
       font-weight: 800;
       color: var(--color-gray-900);
-      line-height: 1.35;
+      line-height: 1.12;
+      overflow-wrap: anywhere;
     }
 
     .investmentKitColumnMeta {
@@ -746,52 +755,88 @@
   /* Structure mode */
   .structureCards {
     width: 100%;
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-3);
-    align-content: start;
-  }
-
-  .structureCard {
-    width: 100%;
-    border: 1px solid var(--color-gray-200);
-    border-radius: var(--radius-xl);
-    background: var(--color-white);
-    padding: var(--space-4) var(--space-5);
-    text-align: left;
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    cursor: pointer;
-    box-shadow: var(--shadow-xs);
-    transition: box-shadow var(--transition-base), transform var(--transition-base), border-color var(--transition-base);
-    min-height: 148px;
+    align-items: center;
+    justify-content: flex-start;
+    flex: unset;
   }
 
-  .structureCard:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
+  .structureQuantityRow {
+    width: min(100%, 338px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: 4px;
+  }
+
+  .structureQuantityLabel {
+    font-size: clamp(1.1rem, 1.45vw, 1.35rem);
+    font-weight: 700;
+    color: var(--color-gray-700);
+    line-height: 1.1;
+  }
+
+  .structureQuantityInput {
+    width: 132px;
+    min-height: 50px;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius-md);
+    font-size: clamp(1.18rem, 1.55vw, 1.45rem);
+    font-weight: 700;
+    text-align: center;
+    color: var(--color-gray-800);
+    background: var(--color-white);
+  }
+
+  .structureQuantityInput:focus {
+    outline: none;
     border-color: var(--color-primary);
+    box-shadow: var(--focus-ring);
+  }
+
+  .structureCard {
+    width: min(100%, 338px);
+    min-height: 0;
+    height: clamp(106px, 13.2vh, 146px);
+    padding: 10px 14px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
   }
 
   .structureCardLevel {
-    font-size: var(--font-size-sm);
+    font-size: 0.78rem;
     color: var(--color-primary);
     font-weight: 800;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.05;
   }
 
   .structureCardName {
-    font-size: clamp(1rem, 1.25vw, 1.2rem);
+    width: 100%;
+    font-size: clamp(1.1rem, 2.6vw, 2.55rem);
     color: var(--color-gray-900);
     font-weight: 800;
-    line-height: 1.32;
+    line-height: 1.06;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
     overflow-wrap: anywhere;
+    text-align: center;
   }
 
   .structureCardValue {
-    margin-top: auto;
-    font-size: clamp(1.2rem, 1.9vw, 1.5rem);
+    margin-top: 2px;
+    font-size: clamp(1.04rem, 1.35vw, 1.26rem);
     color: var(--color-primary);
     font-weight: 900;
     letter-spacing: -0.01em;
@@ -800,34 +845,32 @@
   }
 
   .structureCardMuted {
-    width: 100%;
+    width: min(100%, 338px);
+    min-height: 0;
+    height: clamp(106px, 13.2vh, 146px);
     border: 1px dashed var(--color-gray-300);
-    border-radius: var(--radius-xl);
-    padding: var(--space-4) var(--space-5);
-    font-size: var(--font-size-base);
+    padding: 12px 14px;
+    font-size: clamp(0.88rem, 1.05vw, 1rem);
     font-weight: 600;
-    line-height: 1.35;
+    line-height: 1.2;
     color: var(--color-gray-500);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
   }
 
   .customizeBtn {
-    width: 100%;
+    width: min(100%, 338px);
+    min-height: 0;
+    height: clamp(106px, 13.2vh, 146px);
     border: 1px solid var(--color-primary);
-    border-radius: var(--radius-xl);
     background: var(--color-primary-light);
     color: var(--color-primary);
     font-weight: 800;
-    font-size: clamp(1rem, 1.3vw, 1.1rem);
-    padding: var(--space-4) var(--space-5);
-    cursor: pointer;
-    text-align: left;
-    transition: box-shadow var(--transition-base), transform var(--transition-base), border-color var(--transition-base);
-  }
-
-  .customizeBtn:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
-    border-color: var(--color-primary-dark);
+    font-size: clamp(1.06rem, 1.35vw, 1.32rem);
+    padding: 12px 14px;
+    text-align: center;
   }
 
   .filterInput {
@@ -896,6 +939,7 @@
 
   .categoryColumn {
     padding: 0;
+    min-height: auto;
   }
 
   .categoryColumn:first-child {
@@ -914,9 +958,15 @@
   }
 
   .valueCard {
-    width: min(100%, 250px);
-    height: clamp(78px, 9.4vh, 104px);
-    font-size: clamp(1rem, 2vw, 1.18rem);
+    width: min(100%, 300px);
+    height: clamp(98px, 12vh, 132px);
+    font-size: clamp(2rem, 3.2vw, 2.36rem);
+  }
+
+  .investmentValues,
+  .structureCards {
+    flex: unset;
+    justify-content: flex-start;
   }
 }
 
@@ -976,11 +1026,12 @@
 }
 
 .kitName {
-  font-size: var(--font-size-lg);
+  font-size: clamp(1.2rem, 2.2vw, 2.35rem);
   font-weight: 800;
   color: var(--color-gray-900);
-  line-height: 1.2;
+  line-height: 1.08;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .kitDesc {
