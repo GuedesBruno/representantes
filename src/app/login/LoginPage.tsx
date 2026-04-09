@@ -77,7 +77,7 @@ function LoginForm() {
       } catch {
         // Ignore storage cleanup errors.
       }
-      const from = searchParams.get('from') || '/dashboard/folhetos';
+      const from = searchParams.get('from') || '/dashboard';
       router.push(from);
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code ?? '';
@@ -93,7 +93,7 @@ function LoginForm() {
     setLoading(true);
     try {
       await loginWithGoogle();
-      const from = searchParams.get('from') || '/dashboard/folhetos';
+      const from = searchParams.get('from') || '/dashboard';
       router.push(from);
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code ?? '';

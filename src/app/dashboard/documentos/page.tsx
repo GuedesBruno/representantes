@@ -1,7 +1,7 @@
 'use client';
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
-import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import styles from './documentos.module.css';
@@ -14,6 +14,7 @@ interface DocumentoItem {
   storagePath: string;
   cloudinaryPublicId?: string;
   resourceType?: string;
+  ordemExibicao?: number;
   contentType: string;
   tamanhoBytes: number;
   criadoPorEmail?: string;
@@ -92,6 +93,18 @@ export default function DocumentosPage() {
   const [message, setMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const sortDocumentos = (rows: DocumentoItem[]) => {
+    return [...rows].sort((a, b) => {
+      const ordemA = Number.isFinite(a.ordemExibicao) ? Number(a.ordemExibicao) : Number.MAX_SAFE_INTEGER;
+      const ordemB = Number.isFinite(b.ordemExibicao) ? Number(b.ordemExibicao) : Number.MAX_SAFE_INTEGER;
+      if (ordemA !== ordemB) return ordemA - ordemB;
+
+      const criadoA = a.criadoEm?.toDate?.().getTime() ?? 0;
+      const criadoB = b.criadoEm?.toDate?.().getTime() ?? 0;
+      return criadoB - criadoA;
+    });
+  };
+
   async function uploadToCloudinary(file: File, idToken: string) {
     const body = new FormData();
     body.append('file', file);
@@ -119,11 +132,11 @@ export default function DocumentosPage() {
   }
 
   useEffect(() => {
-    const q = query(collection(db, 'documentos'), orderBy('criadoEm', 'desc'));
     const unsubscribe = onSnapshot(
-      q,
+      collection(db, 'documentos'),
       (snapshot) => {
-        setItens(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as DocumentoItem[]);
+        const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as DocumentoItem[];
+        setItens(sortDocumentos(docs));
         setLoadingList(false);
       },
       () => {
@@ -159,6 +172,7 @@ export default function DocumentosPage() {
 
       await addDoc(collection(db, 'documentos'), {
         nome: nome.trim(),
+        ordemExibicao: Date.now(),
         arquivoNome: arquivo.name,
         arquivoUrl: upload.url,
         storagePath: upload.publicId,
@@ -179,6 +193,25 @@ export default function DocumentosPage() {
     } catch (error) {
       setSubmitState('error');
       setMessage(getErrorMessage(error, 'Nao foi possivel enviar o documento.'));
+    }
+  };
+
+  const handleSetOrder = async (itemId: string, rawValue: string) => {
+    const parsed = Number(rawValue);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      setSubmitState('error');
+      setMessage('Ordem inválida. Use número inteiro maior que zero.');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'documentos', itemId), {
+        ordemExibicao: parsed,
+        atualizadoEm: serverTimestamp(),
+      });
+    } catch {
+      setSubmitState('error');
+      setMessage('Não foi possível atualizar a ordem dos documentos agora.');
     }
   };
 
@@ -233,7 +266,7 @@ export default function DocumentosPage() {
         <div className={styles.state}>Nenhum documento cadastrado ainda.</div>
       ) : (
         <section className={styles.grid} aria-label="Lista de documentos">
-          {itens.map((item) => {
+          {itens.map((item, index) => {
             const criadoEm = item.criadoEm?.toDate?.();
             const previewUrl = getDocumentoPreviewUrl(item);
             return (
@@ -261,6 +294,26 @@ export default function DocumentosPage() {
                   <h3 className={styles.cardTitle}>{item.nome}</h3>
                   <p className={styles.cardMeta}>{item.arquivoNome} · {formatSize(item.tamanhoBytes)}</p>
                   <p className={styles.cardMeta}>Publicado em {formatDate(criadoEm)}</p>
+
+                  {isAdmin ? (
+                    <div className={styles.orderField}>
+                      <label htmlFor={`ordem-documento-${item.id}`} className={styles.orderLabel}>Ordem</label>
+                      <input
+                        id={`ordem-documento-${item.id}`}
+                        type="number"
+                        min={1}
+                        className={styles.orderInput}
+                        defaultValue={item.ordemExibicao ?? index + 1}
+                        onBlur={(event) => handleSetOrder(item.id, event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            (event.target as HTMLInputElement).blur();
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : null}
 
                   <a className={styles.downloadButton} href={item.arquivoUrl} download={item.arquivoNome} target="_blank" rel="noreferrer">
                     Download

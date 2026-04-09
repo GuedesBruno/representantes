@@ -4,8 +4,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { db } from '@/lib/firebase';
 import styles from './dashboard.module.css';
 
 const NAV_ITEMS = [
@@ -116,6 +118,7 @@ const ADMIN_NAV_ITEMS = [
 ];
 
 const PAGE_TITLES: Record<string, string> = {
+  '/dashboard': 'Início',
   '/dashboard/folhetos': 'Folhetos',
   '/dashboard/tabela-precos': 'Tabela de Preços',
   '/dashboard/videos': 'Vídeos',
@@ -128,10 +131,64 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard/admin/usuarios': 'Usuários (Admin)',
 };
 
+const REORDERABLE_MATERIAL_HREFS = [
+  '/dashboard/folhetos',
+  '/dashboard/videos',
+  '/dashboard/produtos',
+  '/dashboard/documentos',
+] as const;
+
+const DEFAULT_MATERIAL_ORDER = [...REORDERABLE_MATERIAL_HREFS];
+
+function normalizeMaterialOrder(rawOrder: unknown): string[] {
+  if (!Array.isArray(rawOrder)) {
+    return DEFAULT_MATERIAL_ORDER;
+  }
+
+  const unique = new Set<string>();
+  for (const value of rawOrder) {
+    const href = String(value ?? '').trim();
+    if (REORDERABLE_MATERIAL_HREFS.includes(href as (typeof REORDERABLE_MATERIAL_HREFS)[number])) {
+      unique.add(href);
+    }
+  }
+
+  const normalized = [...unique];
+  for (const href of DEFAULT_MATERIAL_ORDER) {
+    if (!normalized.includes(href)) {
+      normalized.push(href);
+    }
+  }
+
+  return normalized;
+}
+
+function getOrderedMaterialItems<T extends { href: string }>(items: T[], materialOrder: string[]) {
+  const normalizedOrder = normalizeMaterialOrder(materialOrder);
+  const slotIndexes = items
+    .map((item, index) => ({ href: item.href, index }))
+    .filter(({ href }) => REORDERABLE_MATERIAL_HREFS.includes(href as (typeof REORDERABLE_MATERIAL_HREFS)[number]))
+    .map(({ index }) => index);
+
+  const orderedSubset = normalizedOrder
+    .map((href) => items.find((item) => item.href === href))
+    .filter(Boolean) as T[];
+
+  const nextItems = [...items];
+  slotIndexes.forEach((slotIndex, i) => {
+    if (orderedSubset[i]) {
+      nextItems[slotIndex] = orderedSubset[i];
+    }
+  });
+
+  return nextItems;
+}
+
 function SidebarContent() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAdmin, logout } = useAuth();
+  const [materialOrder, setMaterialOrder] = useState<string[]>(DEFAULT_MATERIAL_ORDER);
 
   const handleLogout = async () => {
     await logout();
@@ -141,6 +198,21 @@ function SidebarContent() {
   const initials = user?.displayName
     ? user.displayName.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
     : user?.email?.[0].toUpperCase() ?? 'R';
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, 'app_settings', 'navigation'),
+      (snapshot) => {
+        const rawOrder = snapshot.data()?.materialOrder;
+        setMaterialOrder(normalizeMaterialOrder(rawOrder));
+      },
+      () => {
+        setMaterialOrder(DEFAULT_MATERIAL_ORDER);
+      }
+    );
+
+    return unsubscribe;
+  }, []);
 
   return (
     <>
@@ -154,13 +226,13 @@ function SidebarContent() {
         </div>
       </div>
 
-      <nav className={styles.sidebarNav} aria-label="Navegação principal">
+      <nav id="dashboard-sidebar-nav" className={styles.sidebarNav} aria-label="Navegação principal">
         {NAV_ITEMS.map((section) => (
           <div key={section.section} className={styles.navSection}>
             <div className={styles.navSectionLabel} aria-hidden="true">
               {section.section}
             </div>
-            {section.items.map((item) => (
+            {getOrderedMaterialItems(section.items, materialOrder).map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -275,6 +347,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const isProjetosModelos = pathname === '/dashboard/projetos-modelos';
   const isAdminUsuarios = pathname === '/dashboard/admin/usuarios';
   const [mode, setModeState] = useState<'investimento' | 'estrutura'>('investimento');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pageTitle = isProjetosModelos
     ? (mode === 'investimento' ? 'Selecione o Investimento' : 'Selecione a Estrutura')
     : (PAGE_TITLES[pathname] ?? 'Dashboard');
@@ -285,6 +358,22 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     setModeState(params.get('modo') === 'estrutura' ? 'estrutura' : 'investimento');
   }, [isProjetosModelos, pathname]);
 
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
   const setMode = (nextMode: 'investimento' | 'estrutura') => {
     setModeState(nextMode);
     router.replace(`/dashboard/projetos-modelos?modo=${nextMode}`);
@@ -292,12 +381,32 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={styles.layout}>
-      <aside className={styles.sidebar} aria-label="Menu lateral">
+      <aside className={`${styles.sidebar} ${mobileMenuOpen ? styles.open : ''}`} aria-label="Menu lateral">
         <SidebarContent />
       </aside>
+      {mobileMenuOpen ? (
+        <button
+          type="button"
+          className={styles.overlay}
+          aria-label="Fechar menu"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      ) : null}
 
       <div className={styles.main}>
         <header className={`${styles.header} ${isProjetosModelos ? styles.headerWithMode : ''}`}>
+          <button
+            type="button"
+            className={styles.mobileMenuButton}
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="dashboard-sidebar-nav"
+          >
+            <span className={styles.mobileMenuIcon} aria-hidden="true">
+              {mobileMenuOpen ? '✕' : '☰'}
+            </span>
+          </button>
           <h1 className={styles.headerTitle} id="page-title">{pageTitle}</h1>
           {isProjetosModelos && (
             <div className={styles.headerModeSwitch}>

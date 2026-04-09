@@ -7,7 +7,24 @@ export const metadata: Metadata = {
     template: '%s | Tecassistiva',
   },
   description: 'Portal exclusivo para representantes e revendedores da Tecassistiva. Acesse projetos, oportunidades e inteligência de mercado.',
-  robots: { index: false, follow: false },
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    noarchive: true,
+    nosnippet: true,
+    noimageindex: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+      noarchive: true,
+      nosnippet: true,
+      'max-image-preview': 'none',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
 };
 
 export default function RootLayout({

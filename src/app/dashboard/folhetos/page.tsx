@@ -1,7 +1,7 @@
 'use client';
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
-import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import styles from './folhetos.module.css';
@@ -14,6 +14,7 @@ interface Folheto {
   storagePath: string;
   cloudinaryPublicId?: string;
   resourceType?: string;
+  ordemExibicao?: number;
   contentType: string;
   tamanhoBytes: number;
   criadoPorEmail?: string;
@@ -102,6 +103,18 @@ export default function FolhetosPage() {
   const [message, setMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const sortFolhetos = (rows: Folheto[]) => {
+    return [...rows].sort((a, b) => {
+      const ordemA = Number.isFinite(a.ordemExibicao) ? Number(a.ordemExibicao) : Number.MAX_SAFE_INTEGER;
+      const ordemB = Number.isFinite(b.ordemExibicao) ? Number(b.ordemExibicao) : Number.MAX_SAFE_INTEGER;
+      if (ordemA !== ordemB) return ordemA - ordemB;
+
+      const criadoA = a.criadoEm?.toDate?.().getTime() ?? 0;
+      const criadoB = b.criadoEm?.toDate?.().getTime() ?? 0;
+      return criadoB - criadoA;
+    });
+  };
+
   async function uploadToCloudinary(file: File, idToken: string) {
     const body = new FormData();
     body.append('file', file);
@@ -129,16 +142,14 @@ export default function FolhetosPage() {
   }
 
   useEffect(() => {
-    const q = query(collection(db, 'folhetos'), orderBy('criadoEm', 'desc'));
-
     const unsubscribe = onSnapshot(
-      q,
+      collection(db, 'folhetos'),
       (snapshot) => {
         const docs = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as Folheto[];
-        setFolhetos(docs);
+        setFolhetos(sortFolhetos(docs));
         setLoadingList(false);
       },
       () => {
@@ -177,6 +188,7 @@ export default function FolhetosPage() {
 
       await addDoc(collection(db, 'folhetos'), {
         nome: nome.trim(),
+        ordemExibicao: Date.now(),
         arquivoNome: arquivo.name,
         arquivoUrl: upload.url,
         storagePath: upload.publicId,
@@ -199,6 +211,25 @@ export default function FolhetosPage() {
     } catch {
       setSubmitState('error');
       setMessage('Não foi possível enviar o folheto. Verifique a configuração do Cloudinary e as permissões de admin.');
+    }
+  };
+
+  const handleSetOrder = async (itemId: string, rawValue: string) => {
+    const parsed = Number(rawValue);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      setSubmitState('error');
+      setMessage('Ordem inválida. Use número inteiro maior que zero.');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'folhetos', itemId), {
+        ordemExibicao: parsed,
+        atualizadoEm: serverTimestamp(),
+      });
+    } catch {
+      setSubmitState('error');
+      setMessage('Não foi possível atualizar a ordem dos folhetos agora.');
     }
   };
 
@@ -256,7 +287,7 @@ export default function FolhetosPage() {
         <div className={styles.state}>Nenhum folheto cadastrado ainda.</div>
       ) : (
         <section className={styles.grid} aria-label="Lista de folhetos">
-          {folhetos.map((item) => {
+          {folhetos.map((item, index) => {
             const criadoEm = item.criadoEm?.toDate?.();
             return (
               <article key={item.id} className={styles.card}>
@@ -270,6 +301,26 @@ export default function FolhetosPage() {
 
                 <div className={styles.cardBody}>
                   <p className={styles.cardMeta}>Publicado em {formatDate(criadoEm)}</p>
+
+                  {isAdmin ? (
+                    <div className={styles.orderField}>
+                      <label htmlFor={`ordem-folheto-${item.id}`} className={styles.orderLabel}>Ordem</label>
+                      <input
+                        id={`ordem-folheto-${item.id}`}
+                        type="number"
+                        min={1}
+                        className={styles.orderInput}
+                        defaultValue={item.ordemExibicao ?? index + 1}
+                        onBlur={(event) => handleSetOrder(item.id, event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            (event.target as HTMLInputElement).blur();
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : null}
 
                   <a
                     className={styles.downloadButton}

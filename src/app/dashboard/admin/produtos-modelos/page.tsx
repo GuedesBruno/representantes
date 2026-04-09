@@ -7,8 +7,6 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
-  orderBy,
-  query,
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
@@ -22,6 +20,7 @@ export interface ProdutoModelo {
   id: string;
   nome: string;
   nomeAbreviado?: string;
+  ordemExibicao?: number;
   fotoUrl: string;
   catalogoUrl?: string;
   fotoPublicId?: string;
@@ -38,6 +37,7 @@ type Mode = 'list' | 'form' | 'import';
 const EMPTY_FORM = {
   nome: '',
   nomeAbreviado: '',
+  ordemExibicao: '',
   fotoUrl: '',
   catalogoUrl: '',
   precoUnitario: '',
@@ -94,7 +94,16 @@ function normalizeRow(values: unknown[]): typeof EMPTY_FORM {
     linkSite: toText(values[5]),
     videoUrl: toText(values[6]),
     descricaoCurta: toText(values[7]),
+    ordemExibicao: toText(values[8]),
   };
+}
+
+function parseOrderInput(raw: string): number | null {
+  const value = raw.trim();
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) return null;
+  return parsed;
 }
 
 function parsePrecoInput(raw: string): number {
@@ -171,11 +180,17 @@ export default function ProdutosModelosAdminPage() {
   }, [isAdmin, loading, router]);
 
   useEffect(() => {
-    const q = query(collection(db, 'produtos_modelos'), orderBy('nome'));
     const unsub = onSnapshot(
-      q,
+      collection(db, 'produtos_modelos'),
       (snap) => {
-        setProdutos(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdutoModelo)));
+        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdutoModelo));
+        docs.sort((a, b) => {
+          const ordemA = Number.isFinite(a.ordemExibicao) ? Number(a.ordemExibicao) : Number.MAX_SAFE_INTEGER;
+          const ordemB = Number.isFinite(b.ordemExibicao) ? Number(b.ordemExibicao) : Number.MAX_SAFE_INTEGER;
+          if (ordemA !== ordemB) return ordemA - ordemB;
+          return a.nome.localeCompare(b.nome, 'pt-BR');
+        });
+        setProdutos(docs);
         setLoadError('');
         setLoadingData(false);
       },
@@ -200,6 +215,7 @@ export default function ProdutosModelosAdminPage() {
     setForm({
       nome: p.nome,
       nomeAbreviado: p.nomeAbreviado ?? '',
+      ordemExibicao: p.ordemExibicao != null ? String(p.ordemExibicao) : '',
       fotoUrl: p.fotoUrl,
       catalogoUrl: p.catalogoUrl ?? '',
       precoUnitario: String(p.precoUnitario),
@@ -237,14 +253,17 @@ export default function ProdutosModelosAdminPage() {
     e.preventDefault();
     setError('');
     const preco = parsePrecoInput(form.precoUnitario);
+    const ordemExibicao = parseOrderInput(form.ordemExibicao);
     if (!form.nome.trim()) { setError('Nome é obrigatório.'); return; }
     if (isNaN(preco) || preco < 0) { setError('Preço inválido.'); return; }
+    if (form.ordemExibicao.trim() && ordemExibicao === null) { setError('Ordem de exibição inválida. Use um número inteiro maior que zero.'); return; }
 
     setSubmitting(true);
     try {
       const payload = {
         nome: form.nome.trim(),
         nomeAbreviado: form.nomeAbreviado.trim(),
+        ordemExibicao,
         fotoUrl: form.fotoUrl.trim(),
         catalogoUrl: form.catalogoUrl.trim(),
         precoUnitario: preco,
@@ -314,18 +333,23 @@ export default function ProdutosModelosAdminPage() {
             const cols = rawRows[i] ?? [];
             if (cols.every((c) => String(c ?? '').trim() === '')) continue;
             if (cols.length < 5) {
-              setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 8 colunas com nomeAbreviado, catalogoUrl e videoUrl.`);
+              setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 9 colunas com nomeAbreviado, catalogoUrl, videoUrl e ordemExibicao.`);
               return;
             }
             if (cols.length === 5) {
               cols.splice(1, 0, '');
               cols.splice(3, 0, '');
               cols.splice(6, 0, '');
+              cols.push('');
             } else if (cols.length === 6) {
               cols.splice(1, 0, '');
               cols.splice(3, 0, '');
+              cols.push('');
             } else if (cols.length === 7) {
               cols.splice(1, 0, '');
+              cols.push('');
+            } else if (cols.length === 8) {
+              cols.push('');
             }
             rows.push(normalizeRow(cols));
           }
@@ -360,18 +384,23 @@ export default function ProdutosModelosAdminPage() {
         const cols = parseDelimitedLine(lines[i], delimiter);
         if (cols.every((c) => c.trim() === '')) continue;
         if (cols.length < 5) {
-          setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 8 colunas com nomeAbreviado, catalogoUrl e videoUrl. Delimitador detectado: "${delimiter}".`);
+          setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 9 colunas com nomeAbreviado, catalogoUrl, videoUrl e ordemExibicao. Delimitador detectado: "${delimiter}".`);
           return;
         }
         if (cols.length === 5) {
           cols.splice(1, 0, '');
           cols.splice(3, 0, '');
           cols.splice(6, 0, '');
+          cols.push('');
         } else if (cols.length === 6) {
           cols.splice(1, 0, '');
           cols.splice(3, 0, '');
+          cols.push('');
         } else if (cols.length === 7) {
           cols.splice(1, 0, '');
+          cols.push('');
+        } else if (cols.length === 8) {
+          cols.push('');
         }
         rows.push(normalizeRow(cols));
       }
@@ -394,6 +423,7 @@ export default function ProdutosModelosAdminPage() {
       let skippedCount = 0;
       for (const row of csvPreview) {
         const preco = parsePrecoInput(row.precoUnitario);
+        const ordemExibicao = parseOrderInput(row.ordemExibicao);
         if (!row.nome || isNaN(preco) || preco < 0) {
           skippedCount++;
           continue;
@@ -401,6 +431,7 @@ export default function ProdutosModelosAdminPage() {
         await addDoc(collection(db, 'produtos_modelos'), {
           nome: row.nome.trim(),
           nomeAbreviado: row.nomeAbreviado.trim(),
+          ordemExibicao,
           fotoUrl: row.fotoUrl.trim(),
           catalogoUrl: row.catalogoUrl.trim(),
           precoUnitario: preco,
@@ -481,6 +512,7 @@ export default function ProdutosModelosAdminPage() {
                     <th className={styles.th}>Foto</th>
                     <th className={styles.th}>Nome</th>
                     <th className={styles.th}>Nome Abreviado</th>
+                    <th className={styles.th}>Ordem</th>
                     <th className={styles.th}>Preço Unit.</th>
                     <th className={styles.th}>Link</th>
                     <th className={styles.th}>Catálogo</th>
@@ -506,6 +538,7 @@ export default function ProdutosModelosAdminPage() {
                       </td>
                       <td className={styles.td}><span className={styles.productName}>{p.nome}</span></td>
                       <td className={styles.td}>{p.nomeAbreviado || '—'}</td>
+                      <td className={styles.td}>{p.ordemExibicao ?? '—'}</td>
                       <td className={styles.td}>{formatCurrency(p.precoUnitario)}</td>
                       <td className={styles.td}>
                         {p.linkSite ? (
@@ -612,6 +645,19 @@ export default function ProdutosModelosAdminPage() {
                   onChange={handleChange}
                   maxLength={80}
                   autoComplete="off"
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="ordemExibicao">Ordem de Exibição</label>
+                <input
+                  id="ordemExibicao"
+                  name="ordemExibicao"
+                  type="number"
+                  min={1}
+                  className={styles.input}
+                  value={form.ordemExibicao}
+                  onChange={handleChange}
+                  placeholder="Ex.: 1"
                 />
               </div>
               <div className={styles.field}>
@@ -725,7 +771,7 @@ export default function ProdutosModelosAdminPage() {
           <h2 className={styles.cardTitle}>Importar Produtos via CSV/XLS/XLSX</h2>
           <p className={styles.importHelper}>
             O arquivo deve ter cabeçalho e as colunas na ordem:{' '}
-            <code>nome, nomeAbreviado, fotoUrl, catalogoUrl, precoUnitario, linkSite, videoUrl, descricaoCurta</code>
+            <code>nome, nomeAbreviado, fotoUrl, catalogoUrl, precoUnitario, linkSite, videoUrl, descricaoCurta, ordemExibicao(opcional)</code>
           </p>
           <p className={styles.importHelper}>
             <a href="/templates/produtos-modelos-exemplo.xlsx" download className={styles.link}>
@@ -756,6 +802,7 @@ export default function ProdutosModelosAdminPage() {
                     <tr>
                       <th className={styles.th}>Nome</th>
                       <th className={styles.th}>Nome Abreviado</th>
+                      <th className={styles.th}>Ordem</th>
                       <th className={styles.th}>Preço</th>
                       <th className={styles.th}>Link</th>
                       <th className={styles.th}>Catálogo</th>
@@ -768,6 +815,7 @@ export default function ProdutosModelosAdminPage() {
                       <tr key={i} className={styles.tr}>
                         <td className={styles.td}>{row.nome}</td>
                         <td className={styles.td}>{row.nomeAbreviado || '—'}</td>
+                        <td className={styles.td}>{row.ordemExibicao || '—'}</td>
                         <td className={styles.td}>{row.precoUnitario}</td>
                         <td className={styles.td}>{row.linkSite || '—'}</td>
                         <td className={styles.td}>{row.catalogoUrl || '—'}</td>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { ProdutoModelo } from '../admin/produtos-modelos/page';
 import styles from './produtos.module.css';
@@ -26,11 +26,17 @@ export default function ProdutosPage() {
   const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    const q = query(collection(db, 'produtos_modelos'), orderBy('nome'));
     const unsub = onSnapshot(
-      q,
+      collection(db, 'produtos_modelos'),
       (snap) => {
-        setProdutos(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdutoModelo)));
+        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdutoModelo));
+        docs.sort((a, b) => {
+          const ordemA = Number.isFinite(a.ordemExibicao) ? Number(a.ordemExibicao) : Number.MAX_SAFE_INTEGER;
+          const ordemB = Number.isFinite(b.ordemExibicao) ? Number(b.ordemExibicao) : Number.MAX_SAFE_INTEGER;
+          if (ordemA !== ordemB) return ordemA - ordemB;
+          return a.nome.localeCompare(b.nome, 'pt-BR');
+        });
+        setProdutos(docs);
         setLoadError('');
         setLoading(false);
       },

@@ -1,36 +1,148 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Portal de Representantes Tecassistiva
 
-## Getting Started
+Portal interno para representantes e equipe administrativa, com autenticação Firebase, gestão de conteúdos (folhetos, documentos, vídeos, produtos), projetos-modelo e solicitações de orçamento.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router)
+- React 19 + TypeScript
+- Firebase Auth + Firestore
+- Cloudinary para upload e entrega de arquivos
+- Resend para envio de e-mails
+
+## Pré-requisitos
+
+- Node.js 20+
+- npm 10+
+- Projeto Firebase com Authentication e Firestore habilitados
+- Conta Cloudinary
+- Conta Resend (opcional, mas recomendada)
+
+## Configuração de ambiente
+
+Crie um arquivo `.env.local` na raiz com:
+
+```env
+# Firebase Web SDK
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+
+# Firebase Admin SDK (JSON em linha única)
+FIREBASE_SERVICE_ACCOUNT_KEY={...}
+
+# Sessão JWT da aplicação
+SESSION_SECRET=
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+
+# E-mail (opcional)
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+```
+
+## Instalação
+
+```bash
+npm install
+```
+
+## Executar localmente
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build de produção
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm run start
+```
 
-## Learn More
+## Publicar regras do Firestore
 
-To learn more about Next.js, take a look at the following resources:
+Sempre que alterar `firestore.rules`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+firebase deploy --only firestore:rules
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Tornar um usuário admin
 
-## Deploy on Vercel
+Use o script auxiliar:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run set-admin -- email@dominio.com true
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Para remover admin:
+
+```bash
+npm run set-admin -- email@dominio.com false
+```
+
+## Passo a passo de uso do sistema
+
+## 1. Login
+
+1. Acesse `/login`.
+2. Entre com e-mail/senha ou Google.
+3. Após login, o usuário cai em `/dashboard` (tela de opções).
+
+## 2. Fluxo do representante
+
+1. Em `/dashboard`, escolha o módulo desejado.
+2. Consulte e baixe conteúdos em:
+	- Folhetos
+	- Tabela de Preços
+	- Documentos
+3. Consulte vídeos e produtos nas abas correspondentes.
+4. Em Projetos, monte estrutura/investimento e solicite orçamento.
+
+## 3. Fluxo do admin
+
+1. Acesse o bloco `Admin` no menu lateral.
+2. Em `Produtos Modelos`:
+	- crie/edite produtos
+	- defina `Ordem de Exibição` (impacta Produtos e Vídeos)
+	- importe CSV/XLS/XLSX
+3. Em `Usuários`:
+	- convide usuários
+	- altere perfil/role
+4. Em `Folhetos` e `Documentos`:
+	- suba arquivos
+	- ajuste o campo `Ordem` para definir exibição (1 primeiro, 2 segundo...)
+
+## Regras de ordenação de conteúdo
+
+- Folhetos: usa `ordemExibicao` no documento da coleção `folhetos`.
+- Documentos: usa `ordemExibicao` no documento da coleção `documentos`.
+- Produtos: usa `ordemExibicao` em `produtos_modelos`.
+- Vídeos: herda a ordem de `produtos_modelos` (somente itens com `videoUrl`).
+
+## Fluxos de senha
+
+- Convite de usuário e "esqueci minha senha" usam fluxo customizado em português.
+- Página de criação/redefinição: `/login/criar-senha`.
+
+## Estrutura principal
+
+- `src/app/dashboard/*`: páginas do portal
+- `src/app/api/*`: rotas server-side
+- `src/lib/*`: integrações Firebase/Cloudinary/sessão
+- `firestore.rules`: autorização do Firestore
+
+## Observações operacionais
+
+- Não suba arquivos de chave do Firebase Admin no git.
+- Garantir `SESSION_SECRET` forte em produção.
+- Em caso de erro de permissão, confirmar deploy das rules e claims de admin.

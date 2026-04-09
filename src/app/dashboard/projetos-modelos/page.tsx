@@ -1004,6 +1004,8 @@ function ProjetosModelosPageContent() {
     Educação: 1,
     Biblioteca: 1,
   });
+  const [isCompactCategories, setIsCompactCategories] = useState(false);
+  const [activeMobileCategory, setActiveMobileCategory] = useState<FixedCategory>('Educação');
   const [showCustomizeForm, setShowCustomizeForm] = useState(false);
   const [customCategory, setCustomCategory] = useState<FixedCategory>('Educação');
   const [customLevel, setCustomLevel] = useState<KitLevel>('basico');
@@ -1045,6 +1047,21 @@ function ProjetosModelosPageContent() {
       setSelectedBandKit(null);
     }
   }, [mode]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1024px)');
+
+    const updateCompactState = () => {
+      setIsCompactCategories(media.matches);
+    };
+
+    updateCompactState();
+    media.addEventListener('change', updateCompactState);
+
+    return () => {
+      media.removeEventListener('change', updateCompactState);
+    };
+  }, []);
 
   useEffect(() => {
     setDetailMode('kit');
@@ -1125,6 +1142,7 @@ function ProjetosModelosPageContent() {
   const activeOptions = LEVELS
     .map((level) => (activeInvestmentCategory ? kitsByCategory[activeInvestmentCategory][level] : null))
     .filter((opt): opt is KitOption => Boolean(opt));
+  const displayedCategories = isCompactCategories ? [activeMobileCategory] : FIXED_CATEGORIES;
 
   const selectedBandOption = selectedBandKit
     ? activeOptions.find((option) => option.kit.id === selectedBandKit.id) ?? null
@@ -1175,8 +1193,25 @@ function ProjetosModelosPageContent() {
         <div className={styles.empty}>Nenhum kit cadastrado ainda. Aguarde o administrador configurar os kits modelos.</div>
       ) : (
         <>
+          {isCompactCategories && (
+            <div className={styles.mobileCategoryToggle} role="tablist" aria-label="Selecionar categoria">
+              {FIXED_CATEGORIES.map((fixedCategory) => (
+                <button
+                  key={fixedCategory}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeMobileCategory === fixedCategory}
+                  className={`${styles.mobileCategoryButton} ${activeMobileCategory === fixedCategory ? styles.mobileCategoryButtonActive : ''}`}
+                  onClick={() => setActiveMobileCategory(fixedCategory)}
+                >
+                  {fixedCategory}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className={styles.dualColumns}>
-            {FIXED_CATEGORIES.map((fixedCategory) => {
+            {displayedCategories.map((fixedCategory) => {
               const levelEntries = LEVELS
                 .map((level) => kitsByCategory[fixedCategory][level])
                 .filter((opt): opt is KitOption => Boolean(opt));
