@@ -317,6 +317,10 @@ export async function verifyAdminIdToken(idToken: string) {
   return decodedToken;
 }
 
+export async function generatePasswordResetLinkForEmail(email: string) {
+  return getAdminAuth().generatePasswordResetLink(email);
+}
+
 export async function deleteUser(uid: string) {
   const auth = getAdminAuth();
   const db = getAdminDb();

@@ -171,11 +171,6 @@ export default function VideosPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Videos</h1>
-        <p className={styles.subtitle}>Todos os videos cadastrados nos produtos com URL valida.</p>
-      </header>
-
       {videos.length === 0 ? (
         <div className={styles.empty}>Nenhum produto com video cadastrado.</div>
       ) : (

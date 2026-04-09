@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import styles from './dashboard.module.css';
@@ -222,7 +222,11 @@ function SidebarContent() {
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isProjetosModelos = pathname === '/dashboard/projetos-modelos';
+  const isAdminUsuarios = pathname === '/dashboard/admin/usuarios';
+  const usersSearchValue = searchParams.get('q') ?? '';
+  const isInviteOpen = searchParams.get('invite') === '1';
   const [mode, setModeState] = useState<'investimento' | 'estrutura'>('investimento');
   const pageTitle = isProjetosModelos
     ? (mode === 'investimento' ? 'Selecione o Investimento' : 'Selecione a Estrutura')
@@ -237,6 +241,30 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const setMode = (nextMode: 'investimento' | 'estrutura') => {
     setModeState(nextMode);
     router.replace(`/dashboard/projetos-modelos?modo=${nextMode}`);
+  };
+
+  const updateUsuariosQuery = (next: { q?: string; invite?: '1' | '' }) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (next.q !== undefined) {
+      const value = next.q.trim();
+      if (value) {
+        params.set('q', value);
+      } else {
+        params.delete('q');
+      }
+    }
+
+    if (next.invite !== undefined) {
+      if (next.invite === '1') {
+        params.set('invite', '1');
+      } else {
+        params.delete('invite');
+      }
+    }
+
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
   };
 
   return (
@@ -263,6 +291,24 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                 onClick={() => setMode('estrutura')}
               >
                 Estrutura
+              </button>
+            </div>
+          )}
+          {isAdminUsuarios && !isProjetosModelos && (
+            <div className={styles.headerActions}>
+              <input
+                type="search"
+                className={styles.headerSearchInput}
+                placeholder="Buscar por e-mail, nome, região…"
+                value={usersSearchValue}
+                onChange={(event) => updateUsuariosQuery({ q: event.target.value })}
+              />
+              <button
+                type="button"
+                className={styles.headerInviteButton}
+                onClick={() => updateUsuariosQuery({ invite: isInviteOpen ? '' : '1' })}
+              >
+                {isInviteOpen ? 'Fechar convite' : 'Convidar usuário'}
               </button>
             </div>
           )}

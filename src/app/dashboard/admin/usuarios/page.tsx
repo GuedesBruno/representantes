@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import styles from './usuarios-admin.module.css';
@@ -77,12 +77,13 @@ const DEFAULT_INVITE = {
 
 export default function AdminUsuariosPage() {
   const { user, isAdmin, loading, refreshClaims } = useAuth();
+  const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [users, setUsers] = useState<UserDoc[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [search, setSearch] = useState('');
 
   const [selected, setSelected] = useState<UserDoc | null>(null);
   const [editor, setEditor] = useState(DEFAULT_EDITOR);
@@ -90,7 +91,6 @@ export default function AdminUsuariosPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [inviting, setInviting] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [invite, setInvite] = useState(DEFAULT_INVITE);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
@@ -99,6 +99,8 @@ export default function AdminUsuariosPage() {
 
   const selectedUid = selected?.uid || selected?.id || '';
   const isEditingCurrentUser = Boolean(user?.uid && selectedUid && user.uid === selectedUid);
+  const search = searchParams.get('q') ?? '';
+  const inviteOpen = searchParams.get('invite') === '1';
 
   useEffect(() => {
     if (!loading && !isAdmin) {
@@ -327,7 +329,11 @@ export default function AdminUsuariosPage() {
       setInviteSuccess(emailMsg);
       setInviteResetLink(!data.emailSent && typeof data.resetLink === 'string' ? data.resetLink : '');
       setInvite(DEFAULT_INVITE);
-      setInviteOpen(false);
+
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('invite');
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname);
     } catch (err) {
       setInviteError(err instanceof Error ? err.message : 'Erro ao convidar usuário.');
     } finally {
@@ -379,30 +385,9 @@ export default function AdminUsuariosPage() {
 
   return (
     <div className={styles.page}>
-      <section className={styles.topBar}>
-        <h2 className={styles.title}>Usuários</h2>
-        <input
-          type="search"
-          className={styles.searchInput}
-          placeholder="Buscar por e-mail, nome, região…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </section>
-
-      <section className={styles.card}>
-        <div className={styles.actions}>
-          <h3 className={styles.sectionTitle}>Convidar Usuário</h3>
-          <button
-            type="button"
-            className={styles.secondary}
-            onClick={() => setInviteOpen((prev) => !prev)}
-          >
-            {inviteOpen ? 'Fechar convite' : 'Convidar usuário'}
-          </button>
-        </div>
-
-        {inviteOpen && (
+      {(inviteOpen || inviteError || inviteSuccess || inviteResetLink) ? (
+        <section className={styles.card}>
+          {inviteOpen && (
           <form className={styles.form} onSubmit={handleInviteUser}>
             <div className={styles.formGrid}>
               <label>
@@ -499,68 +484,72 @@ export default function AdminUsuariosPage() {
               </button>
             </div>
           </form>
-        )}
+          )}
 
-        {inviteError && <p className={styles.error}>{inviteError}</p>}
-        {inviteSuccess && <p className={styles.success}>{inviteSuccess}</p>}
-        {inviteResetLink && (
-          <p className={styles.success}>Link de redefinição: {inviteResetLink}</p>
-        )}
+          {inviteError && <p className={styles.error}>{inviteError}</p>}
+          {inviteSuccess && <p className={styles.success}>{inviteSuccess}</p>}
+          {inviteResetLink && (
+            <p className={styles.success}>Link de redefinição: {inviteResetLink}</p>
+          )}
+        </section>
+      ) : null}
+
+      <section className={styles.card}>
+        <h3 className={styles.sectionTitle}>Lista</h3>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>E-mail</th>
+                <th>Nome</th>
+                <th>Região</th>
+                <th>Role</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.map((u) => (
+                <tr key={u.uid || u.id}>
+                  <td>{u.email}</td>
+                  <td>{u.displayName || u.profile?.nomeComercial || '—'}</td>
+                  <td>{u.profile?.regiao || '—'}</td>
+                  <td>
+                    <span className={`${styles.roleBadge} ${u.isAdmin ? styles.roleAdmin : styles.roleRep}`}>
+                      {u.isAdmin ? 'admin' : 'representante'}
+                    </span>
+                  </td>
+                  <td>
+                    <button type="button" className={styles.editButton} onClick={() => openEditor(u)}>
+                      Editar
+                    </button>
+                    {(u.uid || u.id) !== user?.uid && (
+                      <button
+                        type="button"
+                        className={styles.deleteButton}
+                        disabled={deleting === (u.uid || u.id)}
+                        onClick={() => handleDeleteUser(u.uid || u.id, u.email)}
+                      >
+                        {deleting === (u.uid || u.id) ? '…' : 'Excluir'}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      <section className={styles.grid}>
-        <div className={styles.card}>
-          <h3 className={styles.sectionTitle}>Lista</h3>
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>E-mail</th>
-                  <th>Nome</th>
-                  <th>Região</th>
-                  <th>Role</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((u) => (
-                  <tr key={u.uid || u.id}>
-                    <td>{u.email}</td>
-                    <td>{u.displayName || u.profile?.nomeComercial || '—'}</td>
-                    <td>{u.profile?.regiao || '—'}</td>
-                    <td>
-                      <span className={`${styles.roleBadge} ${u.isAdmin ? styles.roleAdmin : styles.roleRep}`}>
-                        {u.isAdmin ? 'admin' : 'representante'}
-                      </span>
-                    </td>
-                    <td>
-                      <button type="button" className={styles.editButton} onClick={() => openEditor(u)}>
-                        Editar
-                      </button>
-                      {(u.uid || u.id) !== user?.uid && (
-                        <button
-                          type="button"
-                          className={styles.deleteButton}
-                          disabled={deleting === (u.uid || u.id)}
-                          onClick={() => handleDeleteUser(u.uid || u.id, u.email)}
-                        >
-                          {deleting === (u.uid || u.id) ? '…' : 'Excluir'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      {selected ? (
+        <div className={styles.modalOverlay} role="presentation" onClick={closeEditor}>
+          <div className={styles.modalCard} role="dialog" aria-modal="true" aria-labelledby="editor-modal-title" onClick={(event) => event.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.sectionTitle} id="editor-modal-title">Editar usuário</h3>
+              <button type="button" className={styles.modalCloseButton} onClick={closeEditor} aria-label="Fechar editor">
+                ✕
+              </button>
+            </div>
 
-        <div className={styles.card}>
-          <h3 className={styles.sectionTitle}>Editor</h3>
-
-          {!selected ? (
-            <p className={styles.empty}>Selecione um usuário para editar.</p>
-          ) : (
             <form className={styles.form} onSubmit={handleSave}>
               <div className={styles.formGrid}>
                 <label>
@@ -665,9 +654,9 @@ export default function AdminUsuariosPage() {
                 </button>
               </div>
             </form>
-          )}
+          </div>
         </div>
-      </section>
+      ) : null}
     </div>
   );
 }

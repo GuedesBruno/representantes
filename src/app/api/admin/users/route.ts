@@ -12,6 +12,23 @@ import {
 
 export const runtime = 'nodejs';
 
+function buildCustomResetLink(rawLink: string, origin: string) {
+  try {
+    const parsed = new URL(rawLink);
+    const oobCode = parsed.searchParams.get('oobCode');
+
+    if (!oobCode) {
+      return rawLink;
+    }
+
+    const customUrl = new URL('/login/criar-senha', origin);
+    customUrl.searchParams.set('oobCode', oobCode);
+    return customUrl.toString();
+  } catch {
+    return rawLink;
+  }
+}
+
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (!authHeader?.startsWith('Bearer ')) {
@@ -122,6 +139,7 @@ export async function POST(request: NextRequest) {
       profile,
       sales,
     });
+    const passwordSetupLink = buildCustomResetLink(invited.resetLink, request.nextUrl.origin);
 
     let emailSent = false;
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -133,27 +151,35 @@ export async function POST(request: NextRequest) {
         await resend.emails.send({
           from: fromEmail,
           to: email,
-          subject: 'Seu acesso ao Portal Tecassistiva',
+          subject: 'Crie sua senha - Portal Tecassistiva',
           html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-              <h2 style="color: #1a1a1a;">Bem-vindo ao Portal Tecassistiva</h2>
-              <p style="color: #444;">Olá, ${firstName}!</p>
-              <p style="color: #444;">
-                Você foi convidado como <strong>${role}</strong> no Portal Tecassistiva.
-                Clique no botão abaixo para criar sua senha e acessar o portal.
-              </p>
-              <div style="text-align: center; margin: 32px 0;">
-                <a href="${invited.resetLink}"
-                  style="background: #0066cc; color: #fff; padding: 14px 28px; border-radius: 6px;
-                         text-decoration: none; font-weight: bold; display: inline-block;">
-                  Criar minha senha
-                </a>
+            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px; background: #f8fafc;">
+              <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px;">
+                <p style="margin: 0 0 8px 0; color: #334155; font-size: 14px;">Portal de Representantes Tecassistiva</p>
+                <h2 style="margin: 0 0 16px 0; color: #0f172a; font-size: 24px;">Bem-vindo(a), ${firstName}.</h2>
+                <p style="margin: 0 0 10px 0; color: #334155; line-height: 1.6;">
+                  Seu acesso foi criado com o perfil <strong>${role}</strong>.
+                </p>
+                <p style="margin: 0 0 20px 0; color: #334155; line-height: 1.6;">
+                  Para concluir, clique no botão abaixo e crie sua senha.
+                </p>
+
+                <div style="margin: 28px 0; text-align: center;">
+                  <a href="${passwordSetupLink}"
+                    style="background: #0b5ed7; color: #ffffff; padding: 14px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; display: inline-block;">
+                    Criar minha senha
+                  </a>
+                </div>
+
+                <div style="margin-top: 22px; padding: 12px 14px; border: 1px solid #dbeafe; background: #eff6ff; border-radius: 10px;">
+                  <p style="margin: 0; color: #1e3a8a; font-size: 13px; line-height: 1.5;">
+                    Se o botão não funcionar, copie e cole este link no navegador:<br />
+                    <a href="${passwordSetupLink}" style="color: #1d4ed8; word-break: break-all;">${passwordSetupLink}</a>
+                  </p>
+                </div>
+
+                <p style="margin: 18px 0 0 0; color: #64748b; font-size: 12px;">Por segurança, este link expira em 24 horas.</p>
               </div>
-              <p style="color: #888; font-size: 13px;">
-                Se o botão não funcionar, copie e cole este link no navegador:<br/>
-                <a href="${invited.resetLink}" style="color: #0066cc;">${invited.resetLink}</a>
-              </p>
-              <p style="color: #888; font-size: 13px;">Este link expira em 24 horas.</p>
             </div>
           `,
         });
@@ -166,7 +192,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       uid: invited.uid,
-      resetLink: invited.resetLink,
+      resetLink: passwordSetupLink,
       emailSent,
     });
   } catch (error) {

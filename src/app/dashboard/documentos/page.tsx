@@ -184,51 +184,48 @@ export default function DocumentosPage() {
 
   return (
     <div className={styles.page}>
-      <section className={styles.topCard}>
-        <div>
-          <h2 className={styles.sectionTitle}>Documentos</h2>
-          <p className={styles.sectionText}>Documentos comerciais e institucionais ficam disponiveis para consulta e download.</p>
-        </div>
+      {(isAdmin || message) ? (
+        <section className={styles.topCard}>
+          {isAdmin ? (
+            <form className={styles.form} onSubmit={handleSubmit}>
+              <div className={styles.field}>
+                <label htmlFor="nomeDocumento" className={styles.label}>Nome do documento</label>
+                <input
+                  id="nomeDocumento"
+                  className={styles.input}
+                  type="text"
+                  value={nome}
+                  onChange={(event) => setNome(event.target.value)}
+                  placeholder="Ex.: Apresentacao Institucional"
+                  maxLength={120}
+                />
+              </div>
 
-        {isAdmin ? (
-          <form className={styles.form} onSubmit={handleSubmit}>
-            <div className={styles.field}>
-              <label htmlFor="nomeDocumento" className={styles.label}>Nome do documento</label>
-              <input
-                id="nomeDocumento"
-                className={styles.input}
-                type="text"
-                value={nome}
-                onChange={(event) => setNome(event.target.value)}
-                placeholder="Ex.: Apresentacao Institucional"
-                maxLength={120}
-              />
+              <div className={styles.field}>
+                <label htmlFor="arquivoDocumento" className={styles.label}>Arquivo</label>
+                <input
+                  id="arquivoDocumento"
+                  ref={fileInputRef}
+                  className={styles.fileInput}
+                  type="file"
+                  accept="application/pdf,image/*,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
+                  onChange={handleFileChange}
+                />
+              </div>
+
+              <button className={styles.submitButton} type="submit" disabled={submitState === 'loading'}>
+                {submitState === 'loading' ? 'Enviando...' : 'Cadastrar documento'}
+              </button>
+            </form>
+          ) : null}
+
+          {message && (
+            <div className={`${styles.message} ${submitState === 'error' ? styles.messageError : styles.messageSuccess}`} role="status">
+              {message}
             </div>
-
-            <div className={styles.field}>
-              <label htmlFor="arquivoDocumento" className={styles.label}>Arquivo</label>
-              <input
-                id="arquivoDocumento"
-                ref={fileInputRef}
-                className={styles.fileInput}
-                type="file"
-                accept="application/pdf,image/*,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
-                onChange={handleFileChange}
-              />
-            </div>
-
-            <button className={styles.submitButton} type="submit" disabled={submitState === 'loading'}>
-              {submitState === 'loading' ? 'Enviando...' : 'Cadastrar documento'}
-            </button>
-          </form>
-        ) : null}
-
-        {message && (
-          <div className={`${styles.message} ${submitState === 'error' ? styles.messageError : styles.messageSuccess}`} role="status">
-            {message}
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      ) : null}
 
       {loadingList ? (
         <div className={styles.state}>Carregando documentos...</div>

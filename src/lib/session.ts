@@ -3,7 +3,10 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
 const secretKey = process.env.SESSION_SECRET;
-const encodedKey = new TextEncoder().encode(secretKey || 'fallback-dev-key-change-in-production');
+if (!secretKey) {
+  throw new Error('SESSION_SECRET não definida. Configure esta variável de ambiente.');
+}
+const encodedKey = new TextEncoder().encode(secretKey);
 
 interface SessionPayload {
   uid: string;

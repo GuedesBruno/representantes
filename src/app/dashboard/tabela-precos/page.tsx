@@ -158,51 +158,48 @@ export default function TabelaPrecosPage() {
 
   return (
     <div className={styles.page}>
-      <section className={styles.topCard}>
-        <div>
-          <h2 className={styles.sectionTitle}>Tabela de Precos</h2>
-          <p className={styles.sectionText}>As tabelas publicadas ficam disponiveis para consulta e download.</p>
-        </div>
+      {(isAdmin || message) ? (
+        <section className={styles.topCard}>
+          {isAdmin ? (
+            <form className={styles.form} onSubmit={handleSubmit}>
+              <div className={styles.field}>
+                <label htmlFor="nomeTabelaPreco" className={styles.label}>Nome da tabela</label>
+                <input
+                  id="nomeTabelaPreco"
+                  className={styles.input}
+                  type="text"
+                  value={nome}
+                  onChange={(event) => setNome(event.target.value)}
+                  placeholder="Ex.: Linha Escolar Abril 2026"
+                  maxLength={120}
+                />
+              </div>
 
-        {isAdmin ? (
-          <form className={styles.form} onSubmit={handleSubmit}>
-            <div className={styles.field}>
-              <label htmlFor="nomeTabelaPreco" className={styles.label}>Nome da tabela</label>
-              <input
-                id="nomeTabelaPreco"
-                className={styles.input}
-                type="text"
-                value={nome}
-                onChange={(event) => setNome(event.target.value)}
-                placeholder="Ex.: Linha Escolar Abril 2026"
-                maxLength={120}
-              />
+              <div className={styles.field}>
+                <label htmlFor="arquivoTabelaPreco" className={styles.label}>Arquivo</label>
+                <input
+                  id="arquivoTabelaPreco"
+                  ref={fileInputRef}
+                  className={styles.fileInput}
+                  type="file"
+                  accept="application/pdf,.xls,.xlsx,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  onChange={handleFileChange}
+                />
+              </div>
+
+              <button className={styles.submitButton} type="submit" disabled={submitState === 'loading'}>
+                {submitState === 'loading' ? 'Enviando...' : 'Cadastrar tabela'}
+              </button>
+            </form>
+          ) : null}
+
+          {message && (
+            <div className={`${styles.message} ${submitState === 'error' ? styles.messageError : styles.messageSuccess}`} role="status">
+              {message}
             </div>
-
-            <div className={styles.field}>
-              <label htmlFor="arquivoTabelaPreco" className={styles.label}>Arquivo</label>
-              <input
-                id="arquivoTabelaPreco"
-                ref={fileInputRef}
-                className={styles.fileInput}
-                type="file"
-                accept="application/pdf,.xls,.xlsx,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                onChange={handleFileChange}
-              />
-            </div>
-
-            <button className={styles.submitButton} type="submit" disabled={submitState === 'loading'}>
-              {submitState === 'loading' ? 'Enviando...' : 'Cadastrar tabela'}
-            </button>
-          </form>
-        ) : null}
-
-        {message && (
-          <div className={`${styles.message} ${submitState === 'error' ? styles.messageError : styles.messageSuccess}`} role="status">
-            {message}
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      ) : null}
 
       {loadingList ? (
         <div className={styles.state}>Carregando tabelas...</div>

@@ -204,56 +204,51 @@ export default function FolhetosPage() {
 
   return (
     <div className={styles.page}>
-      <section className={styles.topCard}>
-        <div>
-          <h2 className={styles.sectionTitle}>Biblioteca de Folhetos</h2>
-          <p className={styles.sectionText}>
-            Os folhetos cadastrados aparecem com miniatura e podem ser baixados em um clique.
-          </p>
-        </div>
+      {(isAdmin || message) ? (
+        <section className={styles.topCard}>
+          {isAdmin ? (
+            <form className={styles.form} onSubmit={handleSubmit}>
+              <div className={styles.field}>
+                <label htmlFor="nomeFolheto" className={styles.label}>Nome do folheto</label>
+                <input
+                  id="nomeFolheto"
+                  className={styles.input}
+                  type="text"
+                  value={nome}
+                  onChange={(event) => setNome(event.target.value)}
+                  placeholder="Ex.: Linha Escolar 2026"
+                  maxLength={120}
+                />
+              </div>
 
-        {isAdmin ? (
-          <form className={styles.form} onSubmit={handleSubmit}>
-            <div className={styles.field}>
-              <label htmlFor="nomeFolheto" className={styles.label}>Nome do folheto</label>
-              <input
-                id="nomeFolheto"
-                className={styles.input}
-                type="text"
-                value={nome}
-                onChange={(event) => setNome(event.target.value)}
-                placeholder="Ex.: Linha Escolar 2026"
-                maxLength={120}
-              />
+              <div className={styles.field}>
+                <label htmlFor="arquivoFolheto" className={styles.label}>Arquivo</label>
+                <input
+                  id="arquivoFolheto"
+                  ref={fileInputRef}
+                  className={styles.fileInput}
+                  type="file"
+                  accept="application/pdf,image/*"
+                  onChange={handleFileChange}
+                />
+              </div>
+
+              <button className={styles.submitButton} type="submit" disabled={submitState === 'loading'}>
+                {submitState === 'loading' ? 'Enviando...' : 'Cadastrar folheto'}
+              </button>
+            </form>
+          ) : null}
+
+          {message && (
+            <div
+              className={`${styles.message} ${submitState === 'error' ? styles.messageError : styles.messageSuccess}`}
+              role="status"
+            >
+              {message}
             </div>
-
-            <div className={styles.field}>
-              <label htmlFor="arquivoFolheto" className={styles.label}>Arquivo</label>
-              <input
-                id="arquivoFolheto"
-                ref={fileInputRef}
-                className={styles.fileInput}
-                type="file"
-                accept="application/pdf,image/*"
-                onChange={handleFileChange}
-              />
-            </div>
-
-            <button className={styles.submitButton} type="submit" disabled={submitState === 'loading'}>
-              {submitState === 'loading' ? 'Enviando...' : 'Cadastrar folheto'}
-            </button>
-          </form>
-        ) : null}
-
-        {message && (
-          <div
-            className={`${styles.message} ${submitState === 'error' ? styles.messageError : styles.messageSuccess}`}
-            role="status"
-          >
-            {message}
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      ) : null}
 
       {loadingList ? (
         <div className={styles.state}>Carregando folhetos...</div>

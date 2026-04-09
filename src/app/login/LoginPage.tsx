@@ -114,7 +114,21 @@ function LoginForm() {
 
     setLoading(true);
     try {
-      await resetPassword(email.trim());
+      const response = await fetch('/api/auth/password-reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      if (response.ok) {
+        const data = await response.json() as { useFirebaseFallback?: boolean };
+        if (data.useFirebaseFallback) {
+          await resetPassword(email.trim());
+        }
+      }
+
       setInfo('Se o e-mail existir, você receberá um link para redefinir a senha.');
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code ?? '';

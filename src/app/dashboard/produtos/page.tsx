@@ -53,11 +53,6 @@ export default function ProdutosPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Produtos</h1>
-        <p className={styles.subtitle}>Catalogos e videos refletem os dados cadastrados em Produtos Modelos.</p>
-      </header>
-
       {produtos.length === 0 ? (
         <div className={styles.empty}>Nenhum produto cadastrado.</div>
       ) : (
