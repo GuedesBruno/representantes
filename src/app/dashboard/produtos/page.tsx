@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import DOMPurify from 'dompurify';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { ProdutoModelo } from '../admin/produtos-modelos/page';
@@ -20,10 +21,18 @@ function normalizeExternalUrl(rawUrl: string): string | null {
   }
 }
 
+function sanitizeRichHtml(raw: string) {
+  return DOMPurify.sanitize(raw, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'ul', 'ol', 'li', 'span', 'h1', 'h2', 'h3'],
+    ALLOWED_ATTR: ['style'],
+  });
+}
+
 export default function ProdutosPage() {
   const [produtos, setProdutos] = useState<ProdutoModelo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [produtoInfoAberto, setProdutoInfoAberto] = useState<ProdutoModelo | null>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -71,11 +80,13 @@ export default function ProdutosPage() {
 
             return (
               <article key={produto.id} className={styles.card} title={produto.nome}>
-                {produto.fotoUrl ? (
-                  <img src={produto.fotoUrl} alt={produto.nome} className={styles.thumb} loading="lazy" />
-                ) : (
-                  <div className={styles.thumbPlaceholder} aria-hidden="true" />
-                )}
+                <div className={styles.thumbWrap}>
+                  {produto.fotoUrl ? (
+                    <img src={produto.fotoUrl} alt={produto.nome} className={styles.thumb} loading="lazy" />
+                  ) : (
+                    <div className={styles.thumbPlaceholder} aria-hidden="true" />
+                  )}
+                </div>
 
                 <h2 className={styles.name} title={produto.nome}>{displayName}</h2>
                 <p className={styles.description}>{produto.descricaoCurta || 'Sem descricao cadastrada.'}</p>
@@ -98,12 +109,68 @@ export default function ProdutosPage() {
                       Site
                     </a>
                   ) : null}
+
+                  <button
+                    type="button"
+                    className={styles.infoButton}
+                    onClick={() => setProdutoInfoAberto(produto)}
+                    aria-label={`Informacoes do produto ${displayName}`}
+                  >
+                    i
+                  </button>
                 </div>
               </article>
             );
           })}
         </section>
       )}
+
+      {produtoInfoAberto ? (
+        <div className={styles.modalOverlay} role="presentation" onClick={() => setProdutoInfoAberto(null)}>
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="produto-info-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className={styles.modalClose}
+              onClick={() => setProdutoInfoAberto(null)}
+              aria-label="Fechar informacoes do produto"
+            >
+              ✕
+            </button>
+
+            <div className={styles.modalContent}>
+              <div className={styles.modalMediaColumn}>
+                {produtoInfoAberto.fotoUrl ? (
+                  <img
+                    src={produtoInfoAberto.fotoUrl}
+                    alt={produtoInfoAberto.nome}
+                    className={styles.modalImage}
+                  />
+                ) : (
+                  <div className={styles.modalImagePlaceholder} aria-hidden="true" />
+                )}
+              </div>
+
+              <div className={styles.modalTextColumn}>
+                <h3 id="produto-info-title" className={styles.modalTitle}>{produtoInfoAberto.nome}</h3>
+                {produtoInfoAberto.descricao?.trim() ? (
+                  <div
+                    className={styles.modalText}
+                    dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(produtoInfoAberto.descricao) }}
+                  />
+                ) : (
+                  <p className={styles.modalText}>Sem descricao detalhada cadastrada.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

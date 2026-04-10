@@ -205,6 +205,70 @@
   min-height: 80px;
 }
 
+.editorLoading {
+  padding: var(--space-3);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  color: var(--color-gray-600);
+  font-size: var(--font-size-sm);
+}
+
+.richEditorWrapper {
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-white);
+}
+
+.editorToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--color-gray-200);
+  background: var(--color-gray-50);
+}
+
+.toolbarButton {
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-sm);
+  padding: 0.28rem 0.52rem;
+  background: var(--color-white);
+  color: var(--color-gray-700);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toolbarButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.toolbarSelect {
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.42rem;
+  background: var(--color-white);
+  color: var(--color-gray-700);
+  font-size: var(--font-size-xs);
+}
+
+.editorContent {
+  min-height: 170px;
+  padding: 10px;
+}
+
+.editorContent :global(.ProseMirror) {
+  min-height: 150px;
+  outline: none;
+  color: var(--color-gray-800);
+}
+
+.editorContent :global(.ProseMirror p) {
+  margin: 0 0 0.6rem;
+}
+
 .fileInput {
   font-size: var(--font-size-sm);
 }

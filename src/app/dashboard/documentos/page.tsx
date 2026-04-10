@@ -271,6 +271,9 @@ export default function DocumentosPage() {
             const previewUrl = getDocumentoPreviewUrl(item);
             return (
               <article key={item.id} className={styles.card}>
+                <div className={styles.cardHeader}>
+                  <h3 className={styles.cardTitle}>{item.nome}</h3>
+                </div>
                 <div className={styles.previewWrap}>
                   {previewUrl ? (
                     <img
@@ -291,8 +294,7 @@ export default function DocumentosPage() {
                 </div>
 
                 <div className={styles.cardBody}>
-                  <h3 className={styles.cardTitle}>{item.nome}</h3>
-                  <p className={styles.cardMeta}>{item.arquivoNome} · {formatSize(item.tamanhoBytes)}</p>
+                  <p className={styles.cardMeta}>{formatSize(item.tamanhoBytes)}</p>
                   <p className={styles.cardMeta}>Publicado em {formatDate(criadoEm)}</p>
 
                   {isAdmin ? (

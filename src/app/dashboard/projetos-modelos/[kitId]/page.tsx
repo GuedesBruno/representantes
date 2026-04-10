@@ -1,6 +1,23 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
+
+function PlayIcon({ size = 22, color = 'currentColor', style = {} }: { size?: number, color?: string, style?: React.CSSProperties }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ display: 'inline-block', verticalAlign: 'middle', ...style }}
+      aria-hidden="true"
+    >
+      <circle cx="24" cy="24" r="22" fill="#FF0000" stroke="#C00" strokeWidth="2" />
+      <polygon points="20,16 36,24 20,32" fill="#fff" />
+    </svg>
+  );
+}
 import { collection, doc, getDoc, onSnapshot, query } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -308,11 +325,16 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
                             rel="noopener noreferrer"
                             className={styles.productLink}
                             title="Abrir vídeo"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                           >
-                            🎥 Vídeo
+                            <PlayIcon size={22} />
+                            Vídeo
                           </a>
                         ) : (
-                          <span className={styles.productLink} title="Sem vídeo cadastrado">🎥 Vídeo</span>
+                          <span className={styles.productLink} title="Sem vídeo cadastrado" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <PlayIcon size={22} color="#bbb" />
+                            Vídeo
+                          </span>
                         )}
                         {produto?.linkSite && (
                           <a

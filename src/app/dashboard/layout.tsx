@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -348,6 +348,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const isAdminUsuarios = pathname === '/dashboard/admin/usuarios';
   const [mode, setModeState] = useState<'investimento' | 'estrutura'>('investimento');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const hasOpenedMobileMenuByDefault = useRef(false);
   const pageTitle = isProjetosModelos
     ? (mode === 'investimento' ? 'Selecione o Investimento' : 'Selecione a Estrutura')
     : (PAGE_TITLES[pathname] ?? 'Dashboard');
@@ -360,6 +361,20 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMobileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (hasOpenedMobileMenuByDefault.current) return;
+    if (pathname !== '/dashboard/folhetos') return;
+
+    const isMobileViewport = window.matchMedia('(max-width: 960px)').matches;
+    if (!isMobileViewport) {
+      hasOpenedMobileMenuByDefault.current = true;
+      return;
+    }
+
+    setMobileMenuOpen(true);
+    hasOpenedMobileMenuByDefault.current = true;
   }, [pathname]);
 
   useEffect(() => {

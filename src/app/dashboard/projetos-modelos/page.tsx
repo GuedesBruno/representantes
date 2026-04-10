@@ -13,6 +13,10 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value);
 }
 
+function formatIntegerPtBR(value: number) {
+  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(value);
+}
+
 function truncateProductName(name: string, maxLength = 32) {
   if (name.length <= maxLength) {
     return name;
@@ -1250,8 +1254,13 @@ function ProjetosModelosPageContent() {
                             placeholder="Digite um valor"
                             value={customInvestmentInput[fixedCategory]}
                             onChange={(e) => {
-                              const nextValue = e.target.value.replace(/\D/g, '');
-                              setCustomInvestmentInput((prev) => ({ ...prev, [fixedCategory]: nextValue }));
+                              const nextDigits = e.target.value.replace(/\D/g, '');
+                              if (!nextDigits) {
+                                setCustomInvestmentInput((prev) => ({ ...prev, [fixedCategory]: '' }));
+                                return;
+                              }
+                              const formatted = formatIntegerPtBR(Number(nextDigits));
+                              setCustomInvestmentInput((prev) => ({ ...prev, [fixedCategory]: formatted }));
                             }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {

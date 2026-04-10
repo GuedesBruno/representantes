@@ -6,7 +6,7 @@ export const metadata: Metadata = {
     default: 'Portal de Representantes | Tecassistiva',
     template: '%s | Tecassistiva',
   },
-  description: 'Portal exclusivo para representantes e revendedores da Tecassistiva. Acesse projetos, oportunidades e inteligência de mercado.',
+  description: 'Portal exclusivo para representantes e revendedores da Tecassistiva. Acesse materiais, produtos, vídeos e projetos.',
   robots: {
     index: false,
     follow: false,

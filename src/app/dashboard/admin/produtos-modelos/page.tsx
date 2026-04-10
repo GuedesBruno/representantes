@@ -1,6 +1,11 @@
 'use client';
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Color from '@tiptap/extension-color';
+import { FontSize, TextStyle } from '@tiptap/extension-text-style';
+import TextAlign from '@tiptap/extension-text-align';
 import {
   addDoc,
   collection,
@@ -28,6 +33,7 @@ export interface ProdutoModelo {
   linkSite: string;
   videoUrl?: string;
   descricaoCurta: string;
+  descricao?: string;
   criadoEm?: { toDate(): Date };
   atualizadoEm?: { toDate(): Date };
 }
@@ -44,6 +50,7 @@ const EMPTY_FORM = {
   linkSite: '',
   videoUrl: '',
   descricaoCurta: '',
+  descricao: '',
 };
 
 function formatCurrency(value: number) {
@@ -95,6 +102,7 @@ function normalizeRow(values: unknown[]): typeof EMPTY_FORM {
     videoUrl: toText(values[6]),
     descricaoCurta: toText(values[7]),
     ordemExibicao: toText(values[8]),
+    descricao: toText(values[9]),
   };
 }
 
@@ -125,6 +133,86 @@ function parsePrecoInput(raw: string): number {
 
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function stripHtml(html?: string) {
+  return String(html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+const FONT_SIZES = ['12px', '14px', '16px', '18px', '22px', '28px'];
+const TEXT_COLORS = ['#111827', '#1f2937', '#2563eb', '#166534', '#b45309', '#b91c1c', '#7c3aed'];
+
+function RichTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      TextStyle,
+      FontSize,
+      Color,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+    ],
+    content: value || '',
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML());
+    },
+  });
+
+  useEffect(() => {
+    if (!editor) return;
+    const current = editor.getHTML();
+    if (current !== (value || '')) {
+      editor.commands.setContent(value || '', { emitUpdate: false });
+    }
+  }, [editor, value]);
+
+  if (!editor) {
+    return <div className={styles.editorLoading}>Carregando editor...</div>;
+  }
+
+  return (
+    <div className={styles.richEditorWrapper}>
+      <div className={styles.editorToolbar}>
+        <button type="button" className={styles.toolbarButton} onClick={() => editor.chain().focus().toggleBold().run()}>B</button>
+        <button type="button" className={styles.toolbarButton} onClick={() => editor.chain().focus().toggleItalic().run()}>I</button>
+        <button type="button" className={styles.toolbarButton} onClick={() => editor.chain().focus().toggleStrike().run()}>S</button>
+        <button type="button" className={styles.toolbarButton} onClick={() => editor.chain().focus().toggleBulletList().run()}>Lista</button>
+        <button type="button" className={styles.toolbarButton} onClick={() => editor.chain().focus().setTextAlign('left').run()}>Esq</button>
+        <button type="button" className={styles.toolbarButton} onClick={() => editor.chain().focus().setTextAlign('center').run()}>Centro</button>
+        <button type="button" className={styles.toolbarButton} onClick={() => editor.chain().focus().setTextAlign('right').run()}>Dir</button>
+        <select
+          className={styles.toolbarSelect}
+          defaultValue=""
+          onChange={(event) => {
+            const size = event.target.value;
+            if (!size) return;
+            editor.chain().focus().setFontSize(size).run();
+          }}
+        >
+          <option value="">Tamanho</option>
+          {FONT_SIZES.map((size) => (
+            <option key={size} value={size}>{size}</option>
+          ))}
+        </select>
+        <select
+          className={styles.toolbarSelect}
+          defaultValue=""
+          onChange={(event) => {
+            const color = event.target.value;
+            if (!color) return;
+            editor.chain().focus().setColor(color).run();
+          }}
+        >
+          <option value="">Cor</option>
+          {TEXT_COLORS.map((color) => (
+            <option key={color} value={color}>{color}</option>
+          ))}
+        </select>
+      </div>
+      <EditorContent editor={editor} className={styles.editorContent} />
+    </div>
+  );
 }
 
 export default function ProdutosModelosAdminPage() {
@@ -222,6 +310,7 @@ export default function ProdutosModelosAdminPage() {
       linkSite: p.linkSite,
       videoUrl: p.videoUrl ?? '',
       descricaoCurta: p.descricaoCurta,
+      descricao: p.descricao ?? '',
     });
     setError('');
     setMode('form');
@@ -270,6 +359,7 @@ export default function ProdutosModelosAdminPage() {
         linkSite: form.linkSite.trim(),
         videoUrl: form.videoUrl.trim(),
         descricaoCurta: form.descricaoCurta.trim(),
+        descricao: form.descricao.trim(),
         atualizadoEm: serverTimestamp(),
       };
 
@@ -333,7 +423,7 @@ export default function ProdutosModelosAdminPage() {
             const cols = rawRows[i] ?? [];
             if (cols.every((c) => String(c ?? '').trim() === '')) continue;
             if (cols.length < 5) {
-              setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 9 colunas com nomeAbreviado, catalogoUrl, videoUrl e ordemExibicao.`);
+              setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 10 colunas com nomeAbreviado, catalogoUrl, videoUrl, ordemExibicao e descricao.`);
               return;
             }
             if (cols.length === 5) {
@@ -341,14 +431,20 @@ export default function ProdutosModelosAdminPage() {
               cols.splice(3, 0, '');
               cols.splice(6, 0, '');
               cols.push('');
+              cols.push('');
             } else if (cols.length === 6) {
               cols.splice(1, 0, '');
               cols.splice(3, 0, '');
               cols.push('');
+              cols.push('');
             } else if (cols.length === 7) {
               cols.splice(1, 0, '');
               cols.push('');
+              cols.push('');
             } else if (cols.length === 8) {
+              cols.push('');
+              cols.push('');
+            } else if (cols.length === 9) {
               cols.push('');
             }
             rows.push(normalizeRow(cols));
@@ -384,7 +480,7 @@ export default function ProdutosModelosAdminPage() {
         const cols = parseDelimitedLine(lines[i], delimiter);
         if (cols.every((c) => c.trim() === '')) continue;
         if (cols.length < 5) {
-          setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 9 colunas com nomeAbreviado, catalogoUrl, videoUrl e ordemExibicao. Delimitador detectado: "${delimiter}".`);
+          setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 10 colunas com nomeAbreviado, catalogoUrl, videoUrl, ordemExibicao e descricao. Delimitador detectado: "${delimiter}".`);
           return;
         }
         if (cols.length === 5) {
@@ -392,14 +488,20 @@ export default function ProdutosModelosAdminPage() {
           cols.splice(3, 0, '');
           cols.splice(6, 0, '');
           cols.push('');
+          cols.push('');
         } else if (cols.length === 6) {
           cols.splice(1, 0, '');
           cols.splice(3, 0, '');
           cols.push('');
+          cols.push('');
         } else if (cols.length === 7) {
           cols.splice(1, 0, '');
           cols.push('');
+          cols.push('');
         } else if (cols.length === 8) {
+          cols.push('');
+          cols.push('');
+        } else if (cols.length === 9) {
           cols.push('');
         }
         rows.push(normalizeRow(cols));
@@ -438,6 +540,7 @@ export default function ProdutosModelosAdminPage() {
           linkSite: row.linkSite.trim(),
           videoUrl: row.videoUrl.trim(),
           descricaoCurta: row.descricaoCurta.trim(),
+          descricao: row.descricao.trim(),
           criadoEm: serverTimestamp(),
           atualizadoEm: serverTimestamp(),
         });
@@ -517,6 +620,7 @@ export default function ProdutosModelosAdminPage() {
                     <th className={styles.th}>Link</th>
                     <th className={styles.th}>Catálogo</th>
                     <th className={styles.th}>Vídeo</th>
+                    <th className={styles.th}>Descrição Curta</th>
                     <th className={styles.th}>Descrição</th>
                     <th className={styles.th}>Ações</th>
                   </tr>
@@ -578,6 +682,9 @@ export default function ProdutosModelosAdminPage() {
                       </td>
                       <td className={styles.td}>
                         <span className={styles.descCell} title={p.descricaoCurta}>{p.descricaoCurta || '—'}</span>
+                      </td>
+                      <td className={styles.td}>
+                        <span className={styles.descCell} title={stripHtml(p.descricao)}>{stripHtml(p.descricao) || '—'}</span>
                       </td>
                       <td className={styles.td}>
                         <div className={styles.actions}>
@@ -746,6 +853,13 @@ export default function ProdutosModelosAdminPage() {
                   rows={3}
                 />
               </div>
+              <div className={`${styles.field} ${styles.fieldFull}`}>
+                <label className={styles.label} htmlFor="descricao">Descrição</label>
+                <RichTextEditor
+                  value={form.descricao}
+                  onChange={(nextDescription) => setForm((prev) => ({ ...prev, descricao: nextDescription }))}
+                />
+              </div>
             </div>
             {error && <p className={styles.errorMsg} role="alert">{error}</p>}
             <div className={styles.formActions}>
@@ -771,7 +885,7 @@ export default function ProdutosModelosAdminPage() {
           <h2 className={styles.cardTitle}>Importar Produtos via CSV/XLS/XLSX</h2>
           <p className={styles.importHelper}>
             O arquivo deve ter cabeçalho e as colunas na ordem:{' '}
-            <code>nome, nomeAbreviado, fotoUrl, catalogoUrl, precoUnitario, linkSite, videoUrl, descricaoCurta, ordemExibicao(opcional)</code>
+            <code>nome, nomeAbreviado, fotoUrl, catalogoUrl, precoUnitario, linkSite, videoUrl, descricaoCurta, ordemExibicao(opcional), descricao(opcional)</code>
           </p>
           <p className={styles.importHelper}>
             <a href="/templates/produtos-modelos-exemplo.xlsx" download className={styles.link}>
@@ -807,6 +921,7 @@ export default function ProdutosModelosAdminPage() {
                       <th className={styles.th}>Link</th>
                       <th className={styles.th}>Catálogo</th>
                       <th className={styles.th}>Vídeo</th>
+                      <th className={styles.th}>Descrição Curta</th>
                       <th className={styles.th}>Descrição</th>
                     </tr>
                   </thead>
@@ -821,6 +936,7 @@ export default function ProdutosModelosAdminPage() {
                         <td className={styles.td}>{row.catalogoUrl || '—'}</td>
                         <td className={styles.td}>{row.videoUrl || '—'}</td>
                         <td className={styles.td}>{row.descricaoCurta || '—'}</td>
+                        <td className={styles.td}>{row.descricao || '—'}</td>
                       </tr>
                     ))}
                   </tbody>

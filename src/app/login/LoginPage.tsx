@@ -8,7 +8,6 @@ import styles from './login.module.css';
 
 function LoginForm() {
   const EMAIL_DRAFT_KEY = 'login_email_draft';
-  const PASSWORD_DRAFT_KEY = 'login_password_draft';
   const { login, resetPassword, loginWithGoogle } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -27,14 +26,19 @@ function LoginForm() {
   useEffect(() => {
     try {
       const emailDraft = sessionStorage.getItem(EMAIL_DRAFT_KEY);
-      const passwordDraft = sessionStorage.getItem(PASSWORD_DRAFT_KEY);
 
       if (emailDraft) setEmail(emailDraft);
-      if (passwordDraft) setPassword(passwordDraft);
     } catch {
       // Ignore storage access errors in restricted browser modes.
     }
   }, []);
+
+  useEffect(() => {
+    const hasSensitiveQuery = Boolean(searchParams.get('email') || searchParams.get('password'));
+    if (hasSensitiveQuery) {
+      router.replace('/login');
+    }
+  }, [router, searchParams]);
 
   const getErrorMessage = (code: string): string => {
     const messages: Record<string, string> = {
@@ -73,7 +77,6 @@ function LoginForm() {
       await login(email.trim(), password);
       try {
         sessionStorage.removeItem(EMAIL_DRAFT_KEY);
-        sessionStorage.removeItem(PASSWORD_DRAFT_KEY);
       } catch {
         // Ignore storage cleanup errors.
       }
@@ -151,7 +154,7 @@ function LoginForm() {
         />
         <h1 className={styles.brandTitle}>Tecassistiva</h1>
         <p className={styles.brandSubtitle}>Portal de Representantes</p>
-        <p className={styles.brandCaption}>Acesse projetos, oportunidades e inteligencia comercial</p>
+        <p className={styles.brandCaption}>Acesse materiais, produtos, vídeos e projetos</p>
       </section>
 
       <div className={styles.card}>
@@ -214,6 +217,8 @@ function LoginForm() {
           <form
             className={styles.form}
             onSubmit={handleSubmit}
+            method="post"
+            action="/login"
             noValidate
             aria-describedby={error ? errorId : undefined}
           >
@@ -255,11 +260,6 @@ function LoginForm() {
                   onChange={(e) => {
                     const nextValue = e.target.value;
                     setPassword(nextValue);
-                    try {
-                      sessionStorage.setItem(PASSWORD_DRAFT_KEY, nextValue);
-                    } catch {
-                      // Ignore storage write errors.
-                    }
                   }}
                   placeholder="Digite sua senha"
                   autoComplete="current-password"
