@@ -157,6 +157,7 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (value: 
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
+    immediatelyRender: false,
   });
 
   useEffect(() => {

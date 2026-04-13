@@ -1,0 +1,43 @@
+/* Tabela visual para tabela de preços */
+.visualTableWrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: var(--space-6);
+}
+
+.visualTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1.1rem;
+  background: var(--color-white);
+  box-shadow: var(--shadow-md);
+}
+
+.visualTable th,
+.visualTable td {
+  border: 1px solid var(--color-gray-200);
+  padding: 0.7rem 1.2rem;
+  text-align: left;
+  max-width: 340px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.visualTable th {
+  background: var(--color-primary-lighter);
+  color: var(--color-primary);
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.visualTable tr:nth-child(even) td {
+  background: var(--color-gray-50);
+}
+
+.visualTable tr:hover td {
+  background: var(--color-primary-lighter);
+  color: var(--color-primary);
+}
