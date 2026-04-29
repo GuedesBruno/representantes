@@ -37,6 +37,35 @@
   font-size: var(--font-size-sm);
 }
 
+.filters {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.searchInput, .selectInput {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  flex: 1;
+  min-width: 200px;
+}
+
+.categoryBadge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--color-primary);
+  color: var(--color-white);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 800;
+  z-index: 10;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -271,4 +300,3 @@
   border: 1px dashed var(--color-gray-300);
   color: var(--color-gray-500);
 }
-

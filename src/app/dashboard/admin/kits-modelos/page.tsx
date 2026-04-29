@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { CATEGORIAS_KIT } from '@/lib/constants';
-import type { ProdutoModelo } from '../produtos-modelos/page';
+import type { Produto } from '../produtos-modelos/page';
 import styles from './kits-admin.module.css';
 
 export interface KitItem {
@@ -37,7 +37,7 @@ export interface KitModelo {
 
 const EMPTY_KIT = { nome: '', categoria: CATEGORIAS_KIT[0], descricao: '' };
 
-function calcTotal(itens: KitItem[], produtos: ProdutoModelo[]): number {
+function calcTotal(itens: KitItem[], produtos: Produto[]): number {
   return itens.reduce((acc, item) => {
     const p = produtos.find((x) => x.id === item.produtoId);
     return acc + (p ? p.precoUnitario * item.quantidade : 0);
@@ -52,7 +52,7 @@ export default function KitsModelosAdminPage() {
   const { isAdmin, loading } = useAuth();
   const router = useRouter();
 
-  const [produtos, setProdutos] = useState<ProdutoModelo[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [kits, setKits] = useState<KitModelo[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -84,9 +84,9 @@ export default function KitsModelosAdminPage() {
     };
 
     const unsubP = onSnapshot(
-      query(collection(db, 'produtos_modelos'), orderBy('nome')),
+      query(collection(db, 'produtos'), orderBy('nome')),
       (snap) => {
-        setProdutos(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdutoModelo)));
+        setProdutos(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Produto)));
         setLoadError('');
         resolvedProdutos = true;
         checkDone();
@@ -138,7 +138,7 @@ export default function KitsModelosAdminPage() {
     setKitForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  function addProduto(p: ProdutoModelo) {
+  function addProduto(p: Produto) {
     setKitItens((prev) => {
       const exists = prev.find((i) => i.produtoId === p.id);
       if (exists) return prev;

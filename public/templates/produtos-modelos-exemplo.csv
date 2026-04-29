@@ -1,0 +1,4 @@
+nome,nomeAbreviado,categoria,fotoUrl,catalogoUrl,precoUnitario,linkSite,videoUrl,descricaoCurta,ordemExibicao,descricao
+"Lupa Eletrônica Ruby 5","Ruby 5","Lupas Eletrônicas","https://res.cloudinary.com/exemplo/image/upload/ruby5.jpg","https://exemplo.com/catalogo.pdf","R$ 5.500,00","https://exemplo.com/ruby5","","Lupa eletrônica portátil com tela de 5 polegadas.",1,"Descrição completa em texto puro ou HTML."
+"Linha Braille Focus 40","Focus 40","Linhas Braille","https://res.cloudinary.com/exemplo/image/upload/focus40.jpg","","28000,00","https://exemplo.com/focus40","https://youtube.com/watch?v=exemplo","Linha braille de 40 celas com Bluetooth.",2,""
+"Teclado Ampliado Amarelo","Teclado Amp","Acessórios","","","150.50","","","Teclado com letras grandes em alto contraste.",3,""

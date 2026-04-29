@@ -22,7 +22,7 @@ import { collection, doc, getDoc, onSnapshot, query } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
-import type { ProdutoModelo } from '../../admin/produtos-modelos/page';
+import type { Produto } from '../../admin/produtos-modelos/page';
 import type { KitModelo, KitItem } from '../../admin/kits-modelos/page';
 import styles from './kit-detail.module.css';
 
@@ -71,7 +71,7 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
   const { user } = useAuth();
 
   const [kit, setKit] = useState<KitModelo | null>(null);
-  const [produtos, setProdutos] = useState<ProdutoModelo[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [itens, setItens] = useState<EditableItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -97,9 +97,9 @@ export default function KitDetailPage({ params }: { params: Promise<{ kitId: str
   // Load products (live prices)
   useEffect(() => {
     const unsub = onSnapshot(
-      query(collection(db, 'produtos_modelos')),
+      query(collection(db, 'produtos')),
       (snap) => {
-        setProdutos(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdutoModelo)));
+        setProdutos(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Produto)));
         setLoading(false);
       }
     );

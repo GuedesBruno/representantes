@@ -111,8 +111,7 @@ npm run set-admin -- email@dominio.com false
 ## 3. Fluxo do admin
 
 1. Acesse o bloco `Admin` no menu lateral.
-2. Em `Produtos Modelos`:
-	- crie/edite produtos
+2. Em `Produtos`:
 	- defina `Ordem de Exibição` (impacta Produtos e Vídeos)
 	- importe CSV/XLS/XLSX
 3. Em `Usuários`:
@@ -126,9 +125,7 @@ npm run set-admin -- email@dominio.com false
 
 - Folhetos: usa `ordemExibicao` no documento da coleção `folhetos`.
 - Documentos: usa `ordemExibicao` no documento da coleção `documentos`.
-- Produtos: usa `ordemExibicao` em `produtos_modelos`.
-- Vídeos: herda a ordem de `produtos_modelos` (somente itens com `videoUrl`).
-
+- Produtos: usa `ordemExibicao` em `produtos`.
 ## Fluxos de senha
 
 - Convite de usuário e "esqueci minha senha" usam fluxo customizado em português.

@@ -57,20 +57,17 @@ const NAV_ITEMS = [
         ),
       },
       {
-        href: '/dashboard/documentos',
-        label: 'Documentos',
+        href: '/dashboard/projetos',
+        label: 'Projetos (Novo)',
         icon: (
           <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M14 2v6h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <line x1="8" y1="17" x2="13" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         ),
       },
       {
         href: '/dashboard/projetos-modelos',
-        label: 'Projetos',
+        label: 'Projetos (Antigo)',
         icon: (
           <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -84,7 +81,7 @@ const NAV_ITEMS = [
 const ADMIN_NAV_ITEMS = [
   {
     href: '/dashboard/admin/produtos-modelos',
-    label: 'Produtos Modelos',
+    label: 'Catálogo',
     icon: (
       <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M3 7l9-4 9 4-9 4-9-4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -123,10 +120,9 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard/tabela-precos': 'Tabela de Preços',
   '/dashboard/videos': 'Vídeos',
   '/dashboard/produtos': 'Produtos',
-  '/dashboard/documentos': 'Documentos',
-  '/dashboard/projetos': 'Projetos',
-  '/dashboard/projetos-modelos': 'Projetos',
-  '/dashboard/admin/produtos-modelos': 'Produtos Modelos (Admin)',
+  '/dashboard/projetos': 'Projetos (Novo)',
+  '/dashboard/projetos-modelos': 'Projetos (Antigo)',
+  '/dashboard/admin/produtos-modelos': 'Catálogo (Admin)',
   '/dashboard/admin/kits-modelos': 'Kits Modelos (Admin)',
   '/dashboard/admin/usuarios': 'Usuários (Admin)',
 };
@@ -135,7 +131,6 @@ const REORDERABLE_MATERIAL_HREFS = [
   '/dashboard/folhetos',
   '/dashboard/videos',
   '/dashboard/produtos',
-  '/dashboard/documentos',
 ] as const;
 
 const DEFAULT_MATERIAL_ORDER = [...REORDERABLE_MATERIAL_HREFS];
@@ -345,6 +340,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isProjetosModelos = pathname === '/dashboard/projetos-modelos';
+  const isProjetosNovo = pathname === '/dashboard/projetos';
   const isAdminUsuarios = pathname === '/dashboard/admin/usuarios';
   const [mode, setModeState] = useState<'investimento' | 'estrutura'>('investimento');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -409,48 +405,50 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       ) : null}
 
       <div className={styles.main}>
-        <header className={`${styles.header} ${isProjetosModelos ? styles.headerWithMode : ''}`}>
-          <button
-            type="button"
-            className={styles.mobileMenuButton}
-            onClick={() => setMobileMenuOpen((prev) => !prev)}
-            aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
-            aria-expanded={mobileMenuOpen}
-            aria-controls="dashboard-sidebar-nav"
-          >
-            <span className={styles.mobileMenuIcon} aria-hidden="true">
-              {mobileMenuOpen ? '✕' : '☰'}
-            </span>
-          </button>
-          <h1 className={styles.headerTitle} id="page-title">{pageTitle}</h1>
-          {isProjetosModelos && (
-            <div className={styles.headerModeSwitch}>
-              <button
-                type="button"
-                className={`${styles.headerModeBtn} ${mode === 'investimento' ? styles.headerModeBtnActive : ''}`}
-                onClick={() => setMode('investimento')}
-              >
-                Investimento
-              </button>
-              <button
-                type="button"
-                className={`${styles.headerModeBtn} ${mode === 'estrutura' ? styles.headerModeBtnActive : ''}`}
-                onClick={() => setMode('estrutura')}
-              >
-                Estrutura
-              </button>
-            </div>
-          )}
-          {isAdminUsuarios && !isProjetosModelos && (
-            <Suspense fallback={null}>
-              <UsuariosHeaderActions pathname={pathname} />
-            </Suspense>
-          )}
-        </header>
+        {!isProjetosNovo && (
+          <header className={`${styles.header} ${isProjetosModelos ? styles.headerWithMode : ''}`}>
+            <button
+              type="button"
+              className={styles.mobileMenuButton}
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="dashboard-sidebar-nav"
+            >
+              <span className={styles.mobileMenuIcon} aria-hidden="true">
+                {mobileMenuOpen ? '✕' : '☰'}
+              </span>
+            </button>
+            <h1 className={styles.headerTitle} id="page-title">{pageTitle}</h1>
+            {isProjetosModelos && (
+              <div className={styles.headerModeSwitch}>
+                <button
+                  type="button"
+                  className={`${styles.headerModeBtn} ${mode === 'investimento' ? styles.headerModeBtnActive : ''}`}
+                  onClick={() => setMode('investimento')}
+                >
+                  Investimento
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.headerModeBtn} ${mode === 'estrutura' ? styles.headerModeBtnActive : ''}`}
+                  onClick={() => setMode('estrutura')}
+                >
+                  Estrutura
+                </button>
+              </div>
+            )}
+            {isAdminUsuarios && !isProjetosModelos && (
+              <Suspense fallback={null}>
+                <UsuariosHeaderActions pathname={pathname} />
+              </Suspense>
+            )}
+          </header>
+        )}
 
         <main
           id="main-content"
-          className={styles.content}
+          className={`${styles.content} ${isProjetosNovo ? styles.contentNoHeader : ''}`}
           aria-labelledby="page-title"
         >
           {children}

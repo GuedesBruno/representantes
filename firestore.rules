@@ -29,7 +29,12 @@ service cloud.firestore {
       allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.revendedorId;
     }
 
-    match /produtos_modelos/{produtoId} {
+    match /produtos/{produtoId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /itens_tabela_preco/{itemId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isAdmin();
     }

@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
-import type { ProdutoModelo } from '../admin/produtos-modelos/page';
+import type { Produto } from '../admin/produtos-modelos/page';
 import type { KitItem, KitModelo } from '../admin/kits-modelos/page';
 import styles from './projetos-modelos.module.css';
 
@@ -25,7 +25,7 @@ function truncateProductName(name: string, maxLength = 32) {
   return `${name.slice(0, maxLength - 1)}…`;
 }
 
-function calcTotal(kit: KitModelo, produtos: ProdutoModelo[]): number {
+function calcTotal(kit: KitModelo, produtos: Produto[]): number {
   return kit.itens.reduce((acc, item) => {
     const p = produtos.find((x) => x.id === item.produtoId);
     return acc + (p ? p.precoUnitario * item.quantidade : 0);
@@ -254,7 +254,7 @@ function KitDetailModal({
   onClose,
 }: {
   kit: KitModelo;
-  produtos: ProdutoModelo[];
+  produtos: Produto[];
   user: any;
   projectUnits?: number;
   initialCustomizing?: boolean;
@@ -718,7 +718,7 @@ function InvestmentKitDetail({
   onOpenRequestModal,
 }: {
   kit: KitModelo;
-  produtos: ProdutoModelo[];
+  produtos: Produto[];
   baseKitUnits: number;
   extraProjectTotal: number;
   extraKits: Array<{ kit: KitModelo; qty: number }>;
@@ -990,7 +990,7 @@ function ProjetosModelosPageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const [produtos, setProdutos] = useState<ProdutoModelo[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [kits, setKits] = useState<KitModelo[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
@@ -1080,9 +1080,9 @@ function ProjetosModelosPageContent() {
     };
 
     const unsubP = onSnapshot(
-      query(collection(db, 'produtos_modelos'), orderBy('nome')),
+      query(collection(db, 'produtos'), orderBy('nome')),
       (snap) => {
-        setProdutos(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdutoModelo)));
+        setProdutos(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Produto)));
         resolvedP = true;
         checkDone();
       }

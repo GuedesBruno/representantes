@@ -21,11 +21,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import styles from './produtos-admin.module.css';
 
-export interface ProdutoModelo {
+export interface Produto {
   id: string;
   nome: string;
   nomeAbreviado?: string;
   ordemExibicao?: number;
+  categoria?: string;
   fotoUrl: string;
   catalogoUrl?: string;
   fotoPublicId?: string;
@@ -44,6 +45,7 @@ const EMPTY_FORM = {
   nome: '',
   nomeAbreviado: '',
   ordemExibicao: '',
+  categoria: '',
   fotoUrl: '',
   catalogoUrl: '',
   precoUnitario: '',
@@ -95,14 +97,15 @@ function normalizeRow(values: unknown[]): typeof EMPTY_FORM {
   return {
     nome: toText(values[0]),
     nomeAbreviado: toText(values[1]),
-    fotoUrl: toText(values[2]),
-    catalogoUrl: toText(values[3]),
-    precoUnitario: toText(values[4]),
-    linkSite: toText(values[5]),
-    videoUrl: toText(values[6]),
-    descricaoCurta: toText(values[7]),
-    ordemExibicao: toText(values[8]),
-    descricao: toText(values[9]),
+    categoria: toText(values[2]),
+    fotoUrl: toText(values[3]),
+    catalogoUrl: toText(values[4]),
+    precoUnitario: toText(values[5]),
+    linkSite: toText(values[6]),
+    videoUrl: toText(values[7]),
+    descricaoCurta: toText(values[8]),
+    ordemExibicao: toText(values[9]),
+    descricao: toText(values[10]),
   };
 }
 
@@ -216,10 +219,10 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (value: 
   );
 }
 
-export default function ProdutosModelosAdminPage() {
+export default function ProdutosAdminPage() {
   const { isAdmin, loading, user } = useAuth();
   const router = useRouter();
-  const [produtos, setProdutos] = useState<ProdutoModelo[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [mode, setMode] = useState<Mode>('list');
@@ -231,6 +234,7 @@ export default function ProdutosModelosAdminPage() {
   const [csvPreview, setCsvPreview] = useState<typeof EMPTY_FORM[]>([]);
   const [csvImporting, setCsvImporting] = useState(false);
   const [csvSuccess, setCsvSuccess] = useState('');
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -270,14 +274,14 @@ export default function ProdutosModelosAdminPage() {
 
   useEffect(() => {
     const unsub = onSnapshot(
-      collection(db, 'produtos_modelos'),
+      collection(db, 'produtos'),
       (snap) => {
-        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdutoModelo));
+        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Produto));
         docs.sort((a, b) => {
           const ordemA = Number.isFinite(a.ordemExibicao) ? Number(a.ordemExibicao) : Number.MAX_SAFE_INTEGER;
           const ordemB = Number.isFinite(b.ordemExibicao) ? Number(b.ordemExibicao) : Number.MAX_SAFE_INTEGER;
           if (ordemA !== ordemB) return ordemA - ordemB;
-          return a.nome.localeCompare(b.nome, 'pt-BR');
+          return (a.nome || '').localeCompare(b.nome || '', 'pt-BR');
         });
         setProdutos(docs);
         setLoadError('');
@@ -299,12 +303,13 @@ export default function ProdutosModelosAdminPage() {
     if (imageInputRef.current) imageInputRef.current.value = '';
   }
 
-  function openEdit(p: ProdutoModelo) {
+  function openEdit(p: Produto) {
     setEditingId(p.id);
     setForm({
       nome: p.nome,
       nomeAbreviado: p.nomeAbreviado ?? '',
       ordemExibicao: p.ordemExibicao != null ? String(p.ordemExibicao) : '',
+      categoria: p.categoria ?? '',
       fotoUrl: p.fotoUrl,
       catalogoUrl: p.catalogoUrl ?? '',
       precoUnitario: String(p.precoUnitario),
@@ -354,6 +359,7 @@ export default function ProdutosModelosAdminPage() {
         nome: form.nome.trim(),
         nomeAbreviado: form.nomeAbreviado.trim(),
         ordemExibicao,
+        categoria: form.categoria.trim(),
         fotoUrl: form.fotoUrl.trim(),
         catalogoUrl: form.catalogoUrl.trim(),
         precoUnitario: preco,
@@ -365,13 +371,26 @@ export default function ProdutosModelosAdminPage() {
       };
 
       if (editingId) {
-        await updateDoc(doc(db, 'produtos_modelos', editingId), payload);
+        await updateDoc(doc(db, 'produtos', editingId), payload);
       } else {
-        await addDoc(collection(db, 'produtos_modelos'), {
+        await addDoc(collection(db, 'produtos'), {
           ...payload,
           criadoEm: serverTimestamp(),
         });
       }
+
+      // BACKUP AUTOMÁTICO: Salva uma cópia no histórico sempre que houver alteração
+      try {
+        await addDoc(collection(db, 'produtos_backups'), {
+          ...payload,
+          originalId: editingId || 'novo',
+          backupEm: serverTimestamp(),
+          responsavel: user?.email || 'sistema'
+        });
+      } catch (backupErr) {
+        console.warn('Falha ao gerar backup automático, mas o produto foi salvo.', backupErr);
+      }
+
       setMode('list');
     } catch {
       setError('Erro ao salvar. Tente novamente.');
@@ -382,7 +401,7 @@ export default function ProdutosModelosAdminPage() {
 
   async function handleDelete(id: string) {
     try {
-      await deleteDoc(doc(db, 'produtos_modelos', id));
+      await deleteDoc(doc(db, 'produtos', id));
       setDeleteConfirm(null);
     } catch {
       // noop
@@ -396,70 +415,95 @@ export default function ProdutosModelosAdminPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsProcessingFile(true);
+
     const fileName = file.name.toLowerCase();
     const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
 
     if (isExcel) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        try {
-          const data = ev.target?.result as ArrayBuffer;
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          if (!firstSheetName) {
-            setCsvError('Planilha sem aba válida.');
-            return;
-          }
-
-          const worksheet = workbook.Sheets[firstSheetName];
-          const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' }) as unknown[][];
-
-          if (rawRows.length < 2) {
-            setCsvError('Planilha vazia ou sem dados além do cabeçalho.');
-            return;
-          }
-
-          const rows: typeof EMPTY_FORM[] = [];
-          for (let i = 1; i < rawRows.length; i++) {
-            const cols = rawRows[i] ?? [];
-            if (cols.every((c) => String(c ?? '').trim() === '')) continue;
-            if (cols.length < 5) {
-              setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 10 colunas com nomeAbreviado, catalogoUrl, videoUrl, ordemExibicao e descricao.`);
+        setTimeout(() => {
+          try {
+            const data = ev.target?.result as ArrayBuffer;
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            if (!firstSheetName) {
+              setCsvError('Planilha sem aba válida.');
               return;
             }
-            if (cols.length === 5) {
-              cols.splice(1, 0, '');
-              cols.splice(3, 0, '');
-              cols.splice(6, 0, '');
-              cols.push('');
-              cols.push('');
-            } else if (cols.length === 6) {
-              cols.splice(1, 0, '');
-              cols.splice(3, 0, '');
-              cols.push('');
-              cols.push('');
-            } else if (cols.length === 7) {
-              cols.splice(1, 0, '');
-              cols.push('');
-              cols.push('');
-            } else if (cols.length === 8) {
-              cols.push('');
-              cols.push('');
-            } else if (cols.length === 9) {
-              cols.push('');
+  
+            const worksheet = workbook.Sheets[firstSheetName];
+            const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' }) as unknown[][];
+  
+            if (rawRows.length < 2) {
+              setCsvError('Planilha vazia ou sem dados além do cabeçalho.');
+              return;
             }
-            rows.push(normalizeRow(cols));
+  
+            const rows: typeof EMPTY_FORM[] = [];
+            for (let i = 1; i < rawRows.length; i++) {
+              const cols = rawRows[i] ?? [];
+              if (cols.every((c) => String(c ?? '').trim() === '')) continue;
+              if (cols.length < 5) {
+                setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 11 colunas com nomeAbreviado, categoria, catalogoUrl, videoUrl, ordemExibicao e descricao.`);
+                return;
+              }
+              if (cols.length === 5) {
+                cols.splice(1, 0, ''); // nomeAbreviado
+                cols.splice(2, 0, ''); // categoria
+                cols.splice(4, 0, ''); // catalogoUrl
+                cols.splice(7, 0, ''); // videoUrl
+                cols.push(''); // ordemExibicao
+                cols.push(''); // descricao
+              } else if (cols.length === 6) {
+                cols.splice(1, 0, ''); // nomeAbreviado
+                cols.splice(2, 0, ''); // categoria
+                cols.splice(4, 0, ''); // catalogoUrl
+                cols.push(''); // videoUrl
+                cols.push(''); // ordemExibicao
+                cols.push(''); // descricao
+              } else if (cols.length === 7) {
+                cols.splice(1, 0, ''); // nomeAbreviado
+                cols.splice(2, 0, ''); // categoria
+                cols.push(''); // catalogoUrl
+                cols.push(''); // videoUrl
+                cols.push(''); // ordemExibicao
+                cols.push(''); // descricao
+              } else if (cols.length === 8) {
+                cols.splice(1, 0, ''); // nomeAbreviado
+                cols.push(''); // categoria
+                cols.push(''); // catalogoUrl
+                cols.push(''); // videoUrl
+                cols.push(''); // ordemExibicao
+                cols.push(''); // descricao
+              } else if (cols.length === 9) {
+                cols.splice(1, 0, ''); // nomeAbreviado
+                cols.push(''); // categoria
+                cols.push(''); // catalogoUrl
+                cols.push(''); // videoUrl
+                cols.push(''); // ordemExibicao
+              } else if (cols.length === 10) {
+                cols.splice(1, 0, ''); // nomeAbreviado
+                cols.push(''); // categoria
+                cols.push(''); // catalogoUrl
+                cols.push(''); // videoUrl
+              }
+              rows.push(normalizeRow(cols));
+            }
+  
+            if (rows.length === 0) {
+              setCsvError('Planilha sem linhas válidas para importação.');
+              return;
+            }
+  
+            setCsvPreview(rows);
+          } catch {
+            setCsvError('Erro ao ler arquivo Excel. Verifique se o arquivo está íntegro.');
+          } finally {
+            setIsProcessingFile(false);
           }
-
-          if (rows.length === 0) {
-            setCsvError('Planilha sem linhas válidas para importação.');
-            return;
-          }
-
-          setCsvPreview(rows);
-        } catch {
-          setCsvError('Erro ao ler arquivo Excel. Verifique se o arquivo está íntegro.');
-        }
+        }, 50);
       };
       reader.readAsArrayBuffer(file);
       return;
@@ -467,52 +511,79 @@ export default function ProdutosModelosAdminPage() {
 
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const lines = text.replace(/\r/g, '').split('\n').filter(Boolean);
-      if (lines.length < 2) {
-        setCsvError('Arquivo vazio ou sem dados além do cabeçalho.');
-        return;
-      }
-
-      const delimiter = detectDelimiter(lines[0]);
-
-      const rows: typeof EMPTY_FORM[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = parseDelimitedLine(lines[i], delimiter);
-        if (cols.every((c) => c.trim() === '')) continue;
-        if (cols.length < 5) {
-          setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 10 colunas com nomeAbreviado, catalogoUrl, videoUrl, ordemExibicao e descricao. Delimitador detectado: "${delimiter}".`);
-          return;
+      setTimeout(() => {
+        try {
+          const text = ev.target?.result as string;
+          const lines = text.replace(/\r/g, '').split('\n').filter(Boolean);
+          if (lines.length < 2) {
+            setCsvError('Arquivo vazio ou sem dados além do cabeçalho.');
+            return;
+          }
+    
+          const delimiter = detectDelimiter(lines[0]);
+    
+          const rows: typeof EMPTY_FORM[] = [];
+          for (let i = 1; i < lines.length; i++) {
+            const cols = parseDelimitedLine(lines[i], delimiter);
+            if (cols.every((c) => c.trim() === '')) continue;
+            if (cols.length < 5) {
+              setCsvError(`Linha ${i + 1} inválida: esperadas ao menos 5 colunas (nome, fotoUrl, precoUnitario, linkSite, descricaoCurta) e até 11 colunas com nomeAbreviado, categoria, catalogoUrl, videoUrl, ordemExibicao e descricao. Delimitador detectado: "${delimiter}".`);
+              return;
+            }
+            if (cols.length === 5) {
+              cols.splice(1, 0, ''); // nomeAbreviado
+              cols.splice(2, 0, ''); // categoria
+              cols.splice(4, 0, ''); // catalogoUrl
+              cols.splice(7, 0, ''); // videoUrl
+              cols.push(''); // ordemExibicao
+              cols.push(''); // descricao
+            } else if (cols.length === 6) {
+              cols.splice(1, 0, ''); // nomeAbreviado
+              cols.splice(2, 0, ''); // categoria
+              cols.splice(4, 0, ''); // catalogoUrl
+              cols.push(''); // videoUrl
+              cols.push(''); // ordemExibicao
+              cols.push(''); // descricao
+            } else if (cols.length === 7) {
+              cols.splice(1, 0, ''); // nomeAbreviado
+              cols.splice(2, 0, ''); // categoria
+              cols.push(''); // catalogoUrl
+              cols.push(''); // videoUrl
+              cols.push(''); // ordemExibicao
+              cols.push(''); // descricao
+            } else if (cols.length === 8) {
+              cols.splice(1, 0, ''); // nomeAbreviado
+              cols.push(''); // categoria
+              cols.push(''); // catalogoUrl
+              cols.push(''); // videoUrl
+              cols.push(''); // ordemExibicao
+              cols.push(''); // descricao
+            } else if (cols.length === 9) {
+              cols.splice(1, 0, ''); // nomeAbreviado
+              cols.push(''); // categoria
+              cols.push(''); // catalogoUrl
+              cols.push(''); // videoUrl
+              cols.push(''); // ordemExibicao
+            } else if (cols.length === 10) {
+              cols.splice(1, 0, ''); // nomeAbreviado
+              cols.push(''); // categoria
+              cols.push(''); // catalogoUrl
+              cols.push(''); // videoUrl
+            }
+            rows.push(normalizeRow(cols));
+          }
+    
+          if (rows.length === 0) {
+            setCsvError('Arquivo sem linhas válidas para importação.');
+            return;
+          }
+          setCsvPreview(rows);
+        } catch {
+          setCsvError('Erro ao ler arquivo CSV/texto. Verifique o formato.');
+        } finally {
+          setIsProcessingFile(false);
         }
-        if (cols.length === 5) {
-          cols.splice(1, 0, '');
-          cols.splice(3, 0, '');
-          cols.splice(6, 0, '');
-          cols.push('');
-          cols.push('');
-        } else if (cols.length === 6) {
-          cols.splice(1, 0, '');
-          cols.splice(3, 0, '');
-          cols.push('');
-          cols.push('');
-        } else if (cols.length === 7) {
-          cols.splice(1, 0, '');
-          cols.push('');
-          cols.push('');
-        } else if (cols.length === 8) {
-          cols.push('');
-          cols.push('');
-        } else if (cols.length === 9) {
-          cols.push('');
-        }
-        rows.push(normalizeRow(cols));
-      }
-
-      if (rows.length === 0) {
-        setCsvError('Arquivo sem linhas válidas para importação.');
-        return;
-      }
-      setCsvPreview(rows);
+      }, 50);
     };
     reader.readAsText(file, 'UTF-8');
   }
@@ -531,10 +602,11 @@ export default function ProdutosModelosAdminPage() {
           skippedCount++;
           continue;
         }
-        await addDoc(collection(db, 'produtos_modelos'), {
+        await addDoc(collection(db, 'produtos'), {
           nome: row.nome.trim(),
           nomeAbreviado: row.nomeAbreviado.trim(),
           ordemExibicao,
+          categoria: row.categoria.trim(),
           fotoUrl: row.fotoUrl.trim(),
           catalogoUrl: row.catalogoUrl.trim(),
           precoUnitario: preco,
@@ -562,6 +634,58 @@ export default function ProdutosModelosAdminPage() {
     } finally {
       setCsvImporting(false);
     }
+  }
+
+  function handleExportCsv() {
+    if (produtos.length === 0) {
+      alert('Não há produtos para exportar.');
+      return;
+    }
+
+    const headers = [
+      'nome',
+      'nomeAbreviado',
+      'categoria',
+      'fotoUrl',
+      'catalogoUrl',
+      'precoUnitario',
+      'linkSite',
+      'videoUrl',
+      'descricaoCurta',
+      'ordemExibicao',
+      'descricao'
+    ];
+
+    const rows = produtos.map(p => [
+      `"${(p.nome || '').replace(/"/g, '""')}"`,
+      `"${(p.nomeAbreviado || '').replace(/"/g, '""')}"`,
+      `"${(p.categoria || '').replace(/"/g, '""')}"`,
+      `"${p.fotoUrl || ''}"`,
+      `"${p.catalogoUrl || ''}"`,
+      p.precoUnitario,
+      `"${p.linkSite || ''}"`,
+      `"${p.videoUrl || ''}"`,
+      `"${(p.descricaoCurta || '').replace(/"/g, '""')}"`,
+      p.ordemExibicao || '',
+      `"${(p.descricao || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = [
+      headers.join(';'),
+      ...rows.map(r => r.join(';'))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().split('T')[0];
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `backup_catalogo_${timestamp}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   if (loading || loadingData) {
@@ -595,9 +719,14 @@ export default function ProdutosModelosAdminPage() {
           </button>
         </div>
         {mode === 'list' && (
-          <button type="button" className={styles.btnPrimary} onClick={openNew}>
-            + Novo Produto
-          </button>
+          <div className={styles.topActions}>
+            <button type="button" className={styles.btnSecondary} onClick={handleExportCsv}>
+              ⬇ Exportar Backup (CSV)
+            </button>
+            <button type="button" className={styles.btnPrimary} onClick={openNew}>
+              + Novo Produto
+            </button>
+          </div>
         )}
       </div>
 
@@ -616,6 +745,7 @@ export default function ProdutosModelosAdminPage() {
                     <th className={styles.th}>Foto</th>
                     <th className={styles.th}>Nome</th>
                     <th className={styles.th}>Nome Abreviado</th>
+                    <th className={styles.th}>Categoria</th>
                     <th className={styles.th}>Ordem</th>
                     <th className={styles.th}>Preço Unit.</th>
                     <th className={styles.th}>Link</th>
@@ -643,6 +773,7 @@ export default function ProdutosModelosAdminPage() {
                       </td>
                       <td className={styles.td}><span className={styles.productName}>{p.nome}</span></td>
                       <td className={styles.td}>{p.nomeAbreviado || '—'}</td>
+                      <td className={styles.td}>{p.categoria || '—'}</td>
                       <td className={styles.td}>{p.ordemExibicao ?? '—'}</td>
                       <td className={styles.td}>{formatCurrency(p.precoUnitario)}</td>
                       <td className={styles.td}>
@@ -752,6 +883,19 @@ export default function ProdutosModelosAdminPage() {
                   value={form.nomeAbreviado}
                   onChange={handleChange}
                   maxLength={80}
+                  autoComplete="off"
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="categoria">Categoria</label>
+                <input
+                  id="categoria"
+                  name="categoria"
+                  type="text"
+                  className={styles.input}
+                  value={form.categoria}
+                  onChange={handleChange}
+                  placeholder="Ex.: Eletrônicos"
                   autoComplete="off"
                 />
               </div>
@@ -886,15 +1030,16 @@ export default function ProdutosModelosAdminPage() {
           <h2 className={styles.cardTitle}>Importar Produtos via CSV/XLS/XLSX</h2>
           <p className={styles.importHelper}>
             O arquivo deve ter cabeçalho e as colunas na ordem:{' '}
-            <code>nome, nomeAbreviado, fotoUrl, catalogoUrl, precoUnitario, linkSite, videoUrl, descricaoCurta, ordemExibicao(opcional), descricao(opcional)</code>
-          </p>
-          <p className={styles.importHelper}>
-            <a href="/templates/produtos-modelos-exemplo.xlsx" download className={styles.link}>
-              Baixar arquivo de exemplo (.xlsx)
-            </a>
+            <code>nome, nomeAbreviado, categoria, fotoUrl, catalogoUrl, precoUnitario, linkSite, videoUrl, descricaoCurta, ordemExibicao(opcional), descricao(opcional)</code>
           </p>
           <div className={styles.field} style={{ marginTop: '1rem' }}>
-            <label className={styles.label} htmlFor="csvFile">Selecionar arquivo</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+            <label className={styles.label} htmlFor="csvFile" style={{ marginBottom: 0 }}>Selecionar arquivo</label>
+            <a href="/templates/produtos-modelos-exemplo.csv" download className={styles.link} style={{ fontSize: '0.875rem', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Baixar planilha de exemplo (.csv)
+            </a>
+          </div>
             <input
               id="csvFile"
               type="file"
@@ -904,6 +1049,8 @@ export default function ProdutosModelosAdminPage() {
               onChange={handleCsvFile}
             />
           </div>
+
+          {isProcessingFile && <p style={{ marginTop: '1rem', color: '#2563eb', fontWeight: 500 }}>Lendo o arquivo, por favor aguarde...</p>}
 
           {csvError && <p className={styles.errorMsg} role="alert">{csvError}</p>}
           {csvSuccess && <p className={styles.successMsg} role="status">{csvSuccess}</p>}
@@ -917,6 +1064,7 @@ export default function ProdutosModelosAdminPage() {
                     <tr>
                       <th className={styles.th}>Nome</th>
                       <th className={styles.th}>Nome Abreviado</th>
+                      <th className={styles.th}>Categoria</th>
                       <th className={styles.th}>Ordem</th>
                       <th className={styles.th}>Preço</th>
                       <th className={styles.th}>Link</th>
@@ -931,6 +1079,7 @@ export default function ProdutosModelosAdminPage() {
                       <tr key={i} className={styles.tr}>
                         <td className={styles.td}>{row.nome}</td>
                         <td className={styles.td}>{row.nomeAbreviado || '—'}</td>
+                        <td className={styles.td}>{row.categoria || '—'}</td>
                         <td className={styles.td}>{row.ordemExibicao || '—'}</td>
                         <td className={styles.td}>{row.precoUnitario}</td>
                         <td className={styles.td}>{row.linkSite || '—'}</td>

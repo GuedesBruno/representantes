@@ -336,6 +336,10 @@
   animation: fadeIn var(--transition-slow) ease both;
 }
 
+.contentNoHeader {
+  padding: 0;
+}
+
 /* ─── Mobile overlay ───────────────────────────────── */
 .overlay {
   display: none;
