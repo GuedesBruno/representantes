@@ -6,6 +6,8 @@
   padding: var(--space-6);
   background: #f8fafc;
   overflow: hidden;
+  max-width: 100vw;
+  box-sizing: border-box;
 }
 
 /* Coluna 1: Pilha de Escolhas */
@@ -590,24 +592,40 @@
   .page {
     padding: var(--space-3);
     padding-top: 4.5rem;
-    overflow-x: hidden;
+    overflow-x: hidden !important;
     height: auto;
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100vw;
   }
   .summaryColumn {
     width: 100%;
-    min-width: 100%;
+    max-width: 100%;
     flex-direction: row;
     display: flex;
     overflow-x: auto;
     gap: var(--space-3);
     padding: var(--space-2) 0;
     -webkit-overflow-scrolling: touch;
+    flex-shrink: 0;
   }
   .summaryCard {
     min-width: 160px;
     flex-shrink: 0;
     padding: var(--space-3);
+  }
+  .optionsColumn, .resultColumn {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-gray-200);
+  }
+  .columnContent {
+    padding: var(--space-4) var(--space-5);
   }
   .presetsGrid {
     grid-template-columns: 1fr;
@@ -615,6 +633,7 @@
   }
   .presetBadge {
     height: 64px;
+    width: 100%;
   }
   .columnTitle {
     font-size: var(--font-size-xl);
