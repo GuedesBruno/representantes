@@ -256,3 +256,14 @@ h4 { font-size: var(--font-size-lg); }
 @media print {
   .no-print { display: none !important; }
 }
+
+/* ─── Mobile Input Zoom Fix ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  input, 
+  select, 
+  textarea,
+  button {
+    font-size: 16px !important;
+  }
+}
+

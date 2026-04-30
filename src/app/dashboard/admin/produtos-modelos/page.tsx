@@ -744,15 +744,15 @@ export default function ProdutosAdminPage() {
                   <tr>
                     <th className={styles.th}>Foto</th>
                     <th className={styles.th}>Nome</th>
-                    <th className={styles.th}>Nome Abreviado</th>
-                    <th className={styles.th}>Categoria</th>
-                    <th className={styles.th}>Ordem</th>
-                    <th className={styles.th}>Preço Unit.</th>
-                    <th className={styles.th}>Link</th>
-                    <th className={styles.th}>Catálogo</th>
-                    <th className={styles.th}>Vídeo</th>
-                    <th className={styles.th}>Descrição Curta</th>
-                    <th className={styles.th}>Descrição</th>
+                    <th className={`${styles.th} ${styles.desktopOnly}`}>Nome Abreviado</th>
+                    <th className={`${styles.th} ${styles.desktopOnly}`}>Categoria</th>
+                    <th className={`${styles.th} ${styles.desktopOnly}`}>Ordem</th>
+                    <th className={`${styles.th} ${styles.desktopOnly}`}>Preço Unit.</th>
+                    <th className={`${styles.th} ${styles.desktopOnly}`}>Link</th>
+                    <th className={`${styles.th} ${styles.desktopOnly}`}>Catálogo</th>
+                    <th className={`${styles.th} ${styles.desktopOnly}`}>Vídeo</th>
+                    <th className={`${styles.th} ${styles.desktopOnly}`}>Descrição Curta</th>
+                    <th className={`${styles.th} ${styles.desktopOnly}`}>Descrição</th>
                     <th className={styles.th}>Ações</th>
                   </tr>
                 </thead>
@@ -772,11 +772,11 @@ export default function ProdutosAdminPage() {
                         )}
                       </td>
                       <td className={styles.td}><span className={styles.productName}>{p.nome}</span></td>
-                      <td className={styles.td}>{p.nomeAbreviado || '—'}</td>
-                      <td className={styles.td}>{p.categoria || '—'}</td>
-                      <td className={styles.td}>{p.ordemExibicao ?? '—'}</td>
+                      <td className={`${styles.td} ${styles.desktopOnly}`}>{p.nomeAbreviado || '—'}</td>
+                      <td className={`${styles.td} ${styles.desktopOnly}`}>{p.categoria || '—'}</td>
+                      <td className={`${styles.td} ${styles.desktopOnly}`}>{p.ordemExibicao ?? '—'}</td>
                       <td className={styles.td}>{formatCurrency(p.precoUnitario)}</td>
-                      <td className={styles.td}>
+                      <td className={`${styles.td} ${styles.desktopOnly}`}>
                         {p.linkSite ? (
                           <a
                             href={p.linkSite}
@@ -788,7 +788,7 @@ export default function ProdutosAdminPage() {
                           </a>
                         ) : '—'}
                       </td>
-                      <td className={styles.td}>
+                      <td className={`${styles.td} ${styles.desktopOnly}`}>
                         {p.catalogoUrl ? (
                           <a
                             href={p.catalogoUrl}
@@ -800,7 +800,7 @@ export default function ProdutosAdminPage() {
                           </a>
                         ) : '—'}
                       </td>
-                      <td className={styles.td}>
+                      <td className={`${styles.td} ${styles.desktopOnly}`}>
                         {p.videoUrl ? (
                           <a
                             href={p.videoUrl}
@@ -812,11 +812,11 @@ export default function ProdutosAdminPage() {
                           </a>
                         ) : '—'}
                       </td>
-                      <td className={styles.td}>
-                        <span className={styles.descCell} title={p.descricaoCurta}>{p.descricaoCurta || '—'}</span>
+                      <td className={`${styles.td} ${styles.desktopOnly}`}>
+                        <div className={styles.descCell} title={p.descricaoCurta}>{p.descricaoCurta || '—'}</div>
                       </td>
-                      <td className={styles.td}>
-                        <span className={styles.descCell} title={stripHtml(p.descricao)}>{stripHtml(p.descricao) || '—'}</span>
+                      <td className={`${styles.td} ${styles.desktopOnly}`}>
+                        <div className={styles.descCell} title={stripHtml(p.descricao)}>{stripHtml(p.descricao) || '—'}</div>
                       </td>
                       <td className={styles.td}>
                         <div className={styles.actions}>

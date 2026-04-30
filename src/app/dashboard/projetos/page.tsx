@@ -432,7 +432,7 @@ function ProjetosPageContent() {
                           while (remaining > 0 && guard < 20) {
                             const next = allOptions.find(o => o.total <= remaining);
                             if (!next) break;
-                            const existing = extras.find(e => e.name === next.name);
+                            const existing = extras.find(e => e.name === next.kit.nome);
                             if (existing) existing.qty++; else extras.push({ name: next.kit.nome, qty: 1 });
                             remaining -= next.total;
                             guard++;

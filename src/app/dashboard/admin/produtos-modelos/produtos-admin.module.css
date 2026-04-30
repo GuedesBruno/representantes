@@ -427,3 +427,9 @@
   padding: var(--space-3) var(--space-4);
   font-size: var(--font-size-sm);
 }
+
+@media (max-width: 960px) {
+  .desktopOnly {
+    display: none !important;
+  }
+}
