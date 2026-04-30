@@ -53,6 +53,21 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value);
 }
 
+function pluralizeKitName(name: string, qty: number) {
+  if (qty <= 1) return name;
+  const lower = name.toLowerCase();
+  // Regras específicas para os kits conhecidos
+  if (lower.includes('inicial')) return 'Kits Iniciais';
+  if (lower.includes('intermediário')) return 'Kits Intermediários';
+  if (lower.includes('completo')) return 'Kits Completos';
+  
+  // Regra geral: substitui "Kit" por "Kits" e tenta pluralizar o resto
+  if (name.startsWith('Kit ')) {
+    return name.replace('Kit ', 'Kits ');
+  }
+  return name.endsWith('s') ? name : name + 's';
+}
+
 function normalizeText(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
@@ -354,15 +369,46 @@ function ProjetosPageContent() {
             {activeStep === 2 && (
               mode === 'investimento' ? (
                 <div className={styles.inputGroup}>
-                  <input type="number" className={styles.mainInput} value={budget} onChange={(e) => setBudget(Number(e.target.value))} autoFocus />
                   <div className={styles.presetsGrid}>
-                    {INVESTMENT_VALUES.map((val) => (
-                      <button key={val} type="button" className={`${styles.presetBadge} ${budget === val ? styles.presetBadgeActive : ''}`} onClick={() => { setBudget(val); setActiveStep(3); }}>
+                    {INVESTMENT_VALUES.map(val => (
+                      <button 
+                        key={val} 
+                        className={`${styles.presetBadge} ${budget === val ? styles.presetBadgeActive : ''}`}
+                        onClick={() => {
+                          setBudget(val);
+                          setActiveStep(3);
+                        }}
+                      >
                         {formatCurrency(val)}
                       </button>
                     ))}
+                    <div className={styles.presetBadge} style={{ padding: '0', overflow: 'hidden', display: 'flex' }}>
+                      <input 
+                        type="number" 
+                        className={styles.mainInput} 
+                        placeholder="Outro Valor"
+                        value={budget && !INVESTMENT_VALUES.includes(budget as any) ? budget : ''}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setBudget(val);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && budget && budget > 0) {
+                            setActiveStep(3);
+                          }
+                        }}
+                      />
+                    </div>
                   </div>
-                  <button className={styles.btnAction} style={{ marginTop: '1.5rem' }} onClick={() => setActiveStep(3)}>Continuar</button>
+                  {budget > 0 && !INVESTMENT_VALUES.includes(budget as any) && (
+                    <button 
+                      className={styles.btnAction} 
+                      style={{ marginTop: '1.5rem', width: '100%' }} 
+                      onClick={() => setActiveStep(3)}
+                    >
+                      Confirmar Valor Customizado
+                    </button>
+                  )}
                 </div>
               ) : (
                 FIXED_CATEGORIES.map(cat => (
@@ -440,10 +486,13 @@ function ProjetosPageContent() {
 
                           return (
                             <div className={`${styles.previewComposition} ${extras.length > 0 ? styles.hasExtras : ''}`}>
-                              {primaryUnits}x {opt.kit.nome}
-                              {extras.map(e => (
-                                <span key={e.name}> + {e.qty}x {e.name}</span>
-                              ))}
+                              <div className={styles.previewLabel}>Com esse investimento você compra:</div>
+                              <div className={styles.previewUnits}>
+                                {primaryUnits}x {pluralizeKitName(opt.kit.nome, primaryUnits)}
+                                {extras.map(e => (
+                                  <span key={e.name}> + {e.qty}x {pluralizeKitName(e.name, e.qty)}</span>
+                                ))}
+                              </div>
                             </div>
                           );
                         })()}
@@ -518,19 +567,19 @@ function ProjetosPageContent() {
                       <>
                         <div className={styles.compositionCard}>
                           <div className={styles.compositionTitle}>Kit Principal</div>
-                          <div className={styles.compositionValue}>{investmentPlan.primaryUnits}x {investmentPlan.baseOption.kit.nome}</div>
+                          <div className={styles.compositionValue}>{investmentPlan.primaryUnits}x {pluralizeKitName(investmentPlan.baseOption.kit.nome, investmentPlan.primaryUnits)}</div>
                         </div>
                         {investmentPlan.extras.map(extra => (
                           <div key={extra.option.kit.id} className={styles.compositionCard} style={{ background: '#ecfdf5', borderColor: '#10b981' }}>
                             <div className={styles.compositionTitle} style={{ color: '#10b981' }}>Kit Extra (Aproveitamento)</div>
-                            <div className={styles.compositionValue}>{extra.qty}x {extra.option.kit.nome}</div>
+                            <div className={styles.compositionValue}>{extra.qty}x {pluralizeKitName(extra.option.kit.nome, extra.qty)}</div>
                           </div>
                         ))}
                       </>
                     ) : (
                       <div className={styles.compositionCard}>
                         <div className={styles.compositionTitle}>Estrutura Solicitada</div>
-                        <div className={styles.compositionValue}>{units}x {activeOption?.kit.nome}</div>
+                        <div className={styles.compositionValue}>{units}x {pluralizeKitName(activeOption?.kit.nome || '', units)}</div>
                       </div>
                     )}
                   </div>
@@ -560,7 +609,7 @@ function ProjetosPageContent() {
                                 <button className={styles.qtyBtn} onClick={() => handleUpdateQty(item.produtoId, 1)}>+</button>
                               </div>
                             ) : (
-                              <div className={styles.resultQty}>{item.quantidade} unidades</div>
+                              <div className={styles.resultQty}>{item.quantidade} {item.quantidade === 1 ? 'unidade' : 'unidades'}</div>
                             )}
                           </div>
                         </li>

@@ -120,7 +120,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  align-items: flex-start;
+  align-items: stretch;
   position: relative;
 }
 
@@ -418,23 +418,44 @@
 /* Prévia da Composição no Card */
 .previewComposition {
   margin-top: var(--space-4);
-  font-size: var(--font-size-md);
-  font-weight: 800;
-  color: var(--color-gray-700);
-  padding: 10px 16px;
   background: #f8fafc;
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-gray-100);
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 16px;
+  gap: 4px;
+}
+
+.previewLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-gray-500);
+}
+
+.previewUnits {
+  font-size: var(--font-size-md);
+  font-weight: 800;
+  color: var(--color-gray-800);
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
 .hasExtras {
-  color: #047857;
   background: #ecfdf5;
   border-color: #10b981;
+}
+
+.hasExtras .previewLabel {
+  color: #059669;
+}
+
+.hasExtras .previewUnits {
+  color: #047857;
 }
 
 .kitPriceRow {
@@ -482,10 +503,55 @@
   color: white;
 }
 
-.mainInput { width: 100%; padding: 1.5rem; border: 2px solid #e2e8f0; border-radius: var(--radius-2xl); font-size: 2.5rem; font-weight: 950; color: var(--color-primary); text-align: center; outline: none; }
-.presetsGrid { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-8); }
-.presetBadge { padding: var(--space-5); border: 2px solid #f1f5f9; border-radius: var(--radius-2xl); font-weight: 900; text-align: center; cursor: pointer; background: white; font-size: var(--font-size-lg); transition: all 0.2s; }
-.presetBadge:hover { border-color: var(--color-primary); transform: scale(1.01); }
+.mainInput { 
+  width: 100%; 
+  height: 100%;
+  padding: 0 var(--space-4); 
+  border: none;
+  background: transparent;
+  font-size: 2.5rem; 
+  font-weight: 900; 
+  color: var(--color-primary); 
+  text-align: center; 
+  outline: none; 
+}
+@media (max-width: 768px) {
+  .mainInput {
+    font-size: clamp(1.4rem, 5vw, 2rem);
+  }
+}
+.mainInput::placeholder {
+  color: var(--color-gray-400);
+  font-weight: 700;
+}
+.presetsGrid { 
+  display: flex; 
+  flex-direction: column; 
+  gap: var(--space-4); 
+  margin-top: var(--space-6); 
+  width: 100%;
+}
+.presetBadge { 
+  width: 100%;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #f1f5f9; 
+  border-radius: var(--radius-2xl); 
+  font-weight: 900; 
+  text-align: center; 
+  cursor: pointer; 
+  background: white; 
+  font-size: 2.5rem; 
+  transition: all 0.2s; 
+}
+@media (max-width: 768px) {
+  .presetBadge {
+    font-size: clamp(1.4rem, 5vw, 2rem);
+  }
+}
+.presetBadge:hover { border-color: var(--color-primary); transform: scale(1.02); }
 .presetBadgeActive { background: var(--color-primary); color: white; border-color: var(--color-primary); }
 
 
@@ -524,36 +590,62 @@
   .page {
     padding: var(--space-3);
     padding-top: 4.5rem;
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100vh;
+  }
+  .summaryColumn {
+    width: 100%;
+    min-width: 100%;
+    flex-direction: row;
+    display: flex;
+    overflow-x: auto;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    -webkit-overflow-scrolling: touch;
   }
   .summaryCard {
-    min-width: 200px;
+    min-width: 160px;
+    flex-shrink: 0;
+    padding: var(--space-3);
+  }
+  .presetsGrid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+  .presetBadge {
+    height: 64px;
   }
   .columnTitle {
     font-size: var(--font-size-xl);
+    text-align: center;
   }
   .optionCard {
-    padding: var(--space-5);
+    padding: var(--space-4);
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: var(--space-4);
+    width: 100%;
   }
   .kitQtyPreview {
     margin-left: 0;
-    margin-top: var(--space-2);
+    width: 100%;
+    text-align: center;
   }
   .mainInput {
-    font-size: 1.8rem;
-    padding: 1rem;
+    font-size: 1.4rem;
   }
   .totalValue {
-    font-size: 2rem;
+    font-size: 1.8rem;
   }
   .footerActions {
     flex-direction: column;
     width: 100%;
+    gap: var(--space-3);
   }
   .btnAction, .btnSecondary {
     width: 100%;
+    height: 54px;
   }
 }
 
