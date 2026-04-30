@@ -1,7 +1,7 @@
 'use client';
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
-import { addDoc, collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, serverTimestamp, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import styles from './folhetos.module.css';
@@ -233,6 +233,20 @@ export default function FolhetosPage() {
     }
   };
 
+  const handleDelete = async (itemId: string, nome: string) => {
+    if (!isAdmin) return;
+    if (!confirm(`Tem certeza que deseja excluir o folheto "${nome}"?`)) return;
+
+    try {
+      await deleteDoc(doc(db, 'folhetos', itemId));
+      setMessage('Folheto excluído com sucesso.');
+      setSubmitState('success');
+    } catch {
+      setSubmitState('error');
+      setMessage('Não foi possível excluir o folheto agora.');
+    }
+  };
+
   return (
     <div className={styles.page}>
       {(isAdmin || message) ? (
@@ -293,6 +307,18 @@ export default function FolhetosPage() {
               <article key={item.id} className={styles.card}>
                 <div className={styles.cardHeader}>
                   <h3 className={styles.cardTitle}>{item.nome}</h3>
+                  {isAdmin && (
+                    <button 
+                      className={styles.deleteButton} 
+                      onClick={() => handleDelete(item.id, item.nome)}
+                      title="Excluir folheto"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                    </button>
+                  )}
                 </div>
 
                 <div className={styles.previewWrap}>

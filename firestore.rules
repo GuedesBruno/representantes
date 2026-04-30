@@ -64,6 +64,16 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    match /atas_pastas/{pastaId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /atas_documentos/{documentoId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
