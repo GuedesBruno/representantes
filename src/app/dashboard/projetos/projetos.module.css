@@ -364,21 +364,24 @@
 /* Outros componentes */
 .optionCard {
   width: 100%;
-  padding: var(--space-6) var(--space-8);
+  padding: var(--space-8);
   border: 2px solid var(--color-gray-100);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
   background: var(--color-white);
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  text-align: left;
 }
 
 .optionCardActive {
   border-color: var(--color-primary);
   background: #f0f7ff;
+  box-shadow: 0 10px 25px -5px rgba(0, 118, 255, 0.15);
+  transform: translateY(-2px);
 }
 
 /* Destaque para o card em inspeção */
@@ -391,32 +394,47 @@
   z-index: 2;
 }
 
-.kitInfoMain {
+.optionContent {
+  width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
 }
 
-.optionTitle { font-size: var(--font-size-lg); font-weight: 800; }
-.optionDesc { font-size: var(--font-size-md); color: var(--color-gray-500); margin-top: 6px; }
+.optionHeaderRow {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.optionTitle { 
+  font-size: 1.4rem; 
+  font-weight: 900; 
+  color: var(--color-gray-900);
+}
+.optionDesc { font-size: var(--font-size-md); color: var(--color-gray-500); margin-top: 8px; line-height: 1.5; }
 
 /* Prévia da Composição no Card */
 .previewComposition {
-  margin-top: 8px;
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: var(--color-gray-600);
-  padding: 6px 12px;
+  margin-top: var(--space-4);
+  font-size: var(--font-size-md);
+  font-weight: 800;
+  color: var(--color-gray-700);
+  padding: 10px 16px;
   background: #f8fafc;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-gray-100);
-  width: fit-content;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .hasExtras {
-  color: #059669;
+  color: #047857;
   background: #ecfdf5;
-  border-color: #d1fae5;
+  border-color: #10b981;
 }
 
 .kitPriceRow {
@@ -426,8 +444,25 @@
   gap: 4px;
 }
 
-.kitPriceValue { font-size: var(--font-size-lg); font-weight: 900; color: var(--color-primary); }
+.kitPriceValue { 
+  font-size: var(--font-size-2xl); 
+  font-weight: 950; 
+  color: var(--color-primary); 
+  letter-spacing: -0.02em;
+}
+
 .kitPriceUnit { font-size: 11px; color: var(--color-gray-400); font-weight: 700; text-transform: uppercase; }
+
+.kitQtyPreview {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-primary);
+  background: #f0f7ff;
+  padding: 6px 14px;
+  border-radius: var(--radius-lg);
+  margin-left: auto;
+  border: 1px solid #dbeafe;
+}
 
 .optionDetailsBtn {
   display: flex;
@@ -455,9 +490,71 @@
 
 
 @media (max-width: 1200px) {
-  .page { flex-direction: column; height: auto; overflow: visible; }
-  .summaryColumn, .optionsColumn, .resultColumn { width: 100% !important; min-width: 100% !important; }
+  .page { 
+    flex-direction: column; 
+    height: 100vh; 
+    overflow-y: auto; 
+    padding: var(--space-4);
+    padding-top: 5rem; /* Space for floating header */
+    gap: var(--space-6);
+  }
+  .summaryColumn {
+    width: 100%;
+    min-width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: var(--space-2);
+    height: auto;
+    flex-shrink: 0;
+  }
+  .summaryCard {
+    min-width: 240px;
+    padding: var(--space-4);
+  }
+  .optionsColumn, .resultColumn { 
+    width: 100% !important; 
+    min-width: 100% !important; 
+    height: auto !important;
+    flex-shrink: 0;
+  }
   .resultColumn:has(.btnCloseDetail)::before { display: none; }
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: var(--space-3);
+    padding-top: 4.5rem;
+  }
+  .summaryCard {
+    min-width: 200px;
+  }
+  .columnTitle {
+    font-size: var(--font-size-xl);
+  }
+  .optionCard {
+    padding: var(--space-5);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+  .kitQtyPreview {
+    margin-left: 0;
+    margin-top: var(--space-2);
+  }
+  .mainInput {
+    font-size: 1.8rem;
+    padding: 1rem;
+  }
+  .totalValue {
+    font-size: 2rem;
+  }
+  .footerActions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .btnAction, .btnSecondary {
+    width: 100%;
+  }
 }
 
 /* Modal de Solicitação de Orçamento */

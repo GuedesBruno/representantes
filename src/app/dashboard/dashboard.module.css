@@ -299,6 +299,28 @@
   position: sticky;
 }
 
+.headerFloating {
+  display: none; /* Hide by default on desktop */
+}
+
+@media (max-width: 768px) {
+  .headerFloating {
+    display: flex;
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    top: 1rem;
+    height: 56px;
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--color-gray-100);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+}
+
 .headerWithMode .headerModeSwitch {
   position: absolute;
   left: 50%;
@@ -338,6 +360,17 @@
 
 .contentNoHeader {
   padding: 0;
+}
+
+.contentProjetosNovo {
+  padding: 0;
+  padding-top: 0;
+}
+
+@media (max-width: 768px) {
+  .contentProjetosNovo {
+    padding-top: 0;
+  }
 }
 
 /* ─── Mobile overlay ───────────────────────────────── */

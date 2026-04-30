@@ -439,9 +439,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         />
       ) : null}
 
-      <div className={styles.main}>
-        {!isProjetosNovo && (
-          <header className={`${styles.header} ${isProjetosModelos ? styles.headerWithMode : ''}`}>
+        <div className={styles.main}>
+          <header className={`${styles.header} ${isProjetosModelos ? styles.headerWithMode : ''} ${isProjetosNovo ? styles.headerFloating : ''}`}>
             <button
               type="button"
               className={styles.mobileMenuButton}
@@ -479,11 +478,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               </Suspense>
             )}
           </header>
-        )}
 
         <main
           id="main-content"
-          className={`${styles.content} ${isProjetosNovo ? styles.contentNoHeader : ''}`}
+          className={`${styles.content} ${isProjetosNovo ? styles.contentProjetosNovo : ''}`}
           aria-labelledby="page-title"
         >
           {children}

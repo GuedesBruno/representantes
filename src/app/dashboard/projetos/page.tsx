@@ -281,7 +281,7 @@ function ProjetosPageContent() {
             onClick={() => goToStep(2)}
           >
             <span className={styles.summaryStep}>Etapa 2</span>
-            <span className={styles.summaryLabel}>{mode === 'investimento' ? 'Valor Disponível' : 'Onde Aplicar'}</span>
+            <span className={styles.summaryLabel}>{mode === 'investimento' ? 'Valor de Investimento' : 'Onde Aplicar'}</span>
             {mode === 'investimento' ? (
               budget > 0 && <div className={styles.summaryValue}>{formatCurrency(budget)}</div>
             ) : (
@@ -329,9 +329,9 @@ function ProjetosPageContent() {
           <div className={styles.columnHeader}>
             <h2 className={styles.columnTitle}>
               {activeStep === 1 && 'Como quer montar o projeto?'}
-              {activeStep === 2 && (mode === 'investimento' ? 'Qual o valor total?' : 'Escolha a categoria')}
+              {activeStep === 2 && (mode === 'investimento' ? 'Qual o valor de investimento?' : 'Escolha a categoria')}
               {activeStep === 3 && (mode === 'investimento' ? 'Escolha a categoria' : 'Escolha o kit')}
-              {activeStep === 4 && (mode === 'investimento' ? 'Escolha o nível base do kit' : 'Quantos kits?')}
+              {activeStep === 4 && (mode === 'investimento' ? 'Escolha o Kit Base' : 'Quantos kits?')}
             </h2>
           </div>
           <div className={styles.columnContent}>
@@ -415,11 +415,38 @@ function ProjetosPageContent() {
                       className={`${styles.optionCard} ${selectedLevel === lvl ? styles.optionCardActive : ''}`} 
                       onClick={() => { setSelectedLevel(lvl); setIsFinished(true); }}
                     >
-                      <div className={styles.kitInfoMain}>
-                        <div className={styles.optionTitle}>{opt.kit.nome}</div>
-                        <div className={styles.kitPriceRow}>
-                          <span className={styles.kitPriceValue}>{formatCurrency(opt.total)}</span>
+                      <div className={styles.optionContent}>
+                        <div className={styles.optionHeaderRow}>
+                          <div className={styles.optionTitle}>{opt.kit.nome}</div>
+                          <div className={styles.kitPriceValue}>{formatCurrency(opt.total)}</div>
                         </div>
+                        
+                        {/* Preview da Composição */}
+                        {(() => {
+                          const primaryUnits = Math.floor(budget / opt.total);
+                          let remaining = budget - (primaryUnits * opt.total);
+                          const extras: Array<{ name: string; qty: number }> = [];
+                          const allOptions = LEVELS.map(l => kitsByCategory[selectedCategory!][l]).filter((o): o is KitOption => Boolean(o)).sort((a, b) => b.total - a.total);
+                          
+                          let guard = 0;
+                          while (remaining > 0 && guard < 20) {
+                            const next = allOptions.find(o => o.total <= remaining);
+                            if (!next) break;
+                            const existing = extras.find(e => e.name === next.name);
+                            if (existing) existing.qty++; else extras.push({ name: next.kit.nome, qty: 1 });
+                            remaining -= next.total;
+                            guard++;
+                          }
+
+                          return (
+                            <div className={`${styles.previewComposition} ${extras.length > 0 ? styles.hasExtras : ''}`}>
+                              {primaryUnits}x {opt.kit.nome}
+                              {extras.map(e => (
+                                <span key={e.name}> + {e.qty}x {e.name}</span>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </button>
                   );
