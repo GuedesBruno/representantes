@@ -13,7 +13,7 @@ const MATERIAL_ORDER_OPTIONS = [
   { href: '/dashboard/tabela-precos', label: 'Tabela de Preços' },
   { href: '/dashboard/videos', label: 'Vídeos' },
   { href: '/dashboard/produtos', label: 'Produtos' },
-  { href: '/dashboard/projetos', label: 'Projetos (Novo)' },
+  { href: '/dashboard/projetos', label: 'Projetos' },
   { href: '/dashboard/projetos-modelos', label: 'Projetos (Antigo)' },
 ] as const;
 

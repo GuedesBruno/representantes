@@ -8,6 +8,7 @@ import {
   setUserRole,
   updateUserEmail,
   verifyAdminIdToken,
+  verifyManagementIdToken,
 } from '@/lib/firebase-admin';
 
 export const runtime = 'nodejs';
@@ -41,12 +42,13 @@ function getBearerToken(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const idToken = getBearerToken(request);
-
     if (!idToken) {
       return NextResponse.json({ error: 'Token ausente.' }, { status: 401 });
     }
 
-    const currentAdmin = await verifyAdminIdToken(idToken);
+    const currentAuth = await verifyManagementIdToken(idToken);
+    const isAdmin = Boolean(currentAuth.admin);
+    const isVendedor = Boolean(currentAuth.vendedor);
 
     const body = await request.json();
     const targetUid = typeof body.targetUid === 'string' ? body.targetUid.trim() : '';
@@ -56,8 +58,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     const role = body.role;
-    if (role !== undefined && role !== 'admin' && role !== 'representante') {
+    if (role !== undefined && role !== 'admin' && role !== 'vendedor' && role !== 'representante') {
       return NextResponse.json({ error: 'role inválido.' }, { status: 400 });
+    }
+
+    // Apenas admin pode dar permissão de admin ou vendedor
+    if (!isAdmin && (role === 'admin' || role === 'vendedor')) {
+      return NextResponse.json({ error: 'Você não tem permissão para atribuir este papel.' }, { status: 403 });
     }
 
     const profile = typeof body.profile === 'object' && body.profile !== null ? body.profile : undefined;
@@ -77,8 +84,15 @@ export async function PATCH(request: NextRequest) {
     const currentRole = targetData?.role === 'admin' ? 'admin' : 'representante';
     const currentEmail = typeof targetData?.email === 'string' ? targetData.email : undefined;
 
-    if (targetUid === currentAdmin.uid && role === 'representante') {
-      return NextResponse.json({ error: 'Você não pode remover sua própria permissão de administrador.' }, { status: 400 });
+    if (targetUid === currentAuth.uid && role === 'representante') {
+      return NextResponse.json({ error: 'Você não pode remover sua própria permissão administrativa.' }, { status: 400 });
+    }
+
+    // Se for Vendedor e não for Admin, só pode editar seus próprios representantes
+    if (isVendedor && !isAdmin) {
+      if (targetData?.sales?.emailVendedor !== currentAuth.email) {
+        return NextResponse.json({ error: 'Você só pode editar seus próprios representantes.' }, { status: 403 });
+      }
     }
 
     if (email !== undefined && email !== '' && !email.includes('@')) {
@@ -111,22 +125,39 @@ export async function PATCH(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const idToken = getBearerToken(request);
-
     if (!idToken) {
       return NextResponse.json({ error: 'Token ausente.' }, { status: 401 });
     }
 
-    await verifyAdminIdToken(idToken);
+    const currentAuth = await verifyManagementIdToken(idToken);
+    const isAdmin = Boolean(currentAuth.admin);
+    const isVendedor = Boolean(currentAuth.vendedor);
 
     const body = await request.json();
     const email = String(body.email ?? '').trim().toLowerCase();
     const displayName = body.displayName === undefined || body.displayName === null
       ? null
       : String(body.displayName).trim();
-    const role = body.role === 'admin' ? 'admin' : 'representante';
+    let role = body.role;
+    if (role !== 'admin' && role !== 'vendedor' && role !== 'representante') {
+      role = 'representante';
+    }
+
+    // Apenas admin pode criar admin ou vendedor
+    if (!isAdmin && (role === 'admin' || role === 'vendedor')) {
+      return NextResponse.json({ error: 'Você não tem permissão para convidar com este papel.' }, { status: 403 });
+    }
 
     const profile = typeof body.profile === 'object' && body.profile !== null ? body.profile : {};
-    const sales = typeof body.sales === 'object' && body.sales !== null ? body.sales : {};
+    let sales = typeof body.sales === 'object' && body.sales !== null ? body.sales : {};
+
+    // Se for Vendedor, força os dados de venda para ele mesmo
+    if (isVendedor && !isAdmin) {
+      sales = {
+        nomeVendedor: currentAuth.name || currentAuth.display_name || '',
+        emailVendedor: currentAuth.email || '',
+      };
+    }
 
     if (!email || !email.includes('@')) {
       return NextResponse.json({ error: 'email inválido.' }, { status: 400 });
@@ -204,12 +235,13 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const idToken = getBearerToken(request);
-
     if (!idToken) {
       return NextResponse.json({ error: 'Token ausente.' }, { status: 401 });
     }
 
-    const currentAdmin = await verifyAdminIdToken(idToken);
+    const currentAuth = await verifyManagementIdToken(idToken);
+    const isAdmin = Boolean(currentAuth.admin);
+    const isVendedor = Boolean(currentAuth.vendedor);
 
     const body = await request.json();
     const targetUid = typeof body.targetUid === 'string' ? body.targetUid.trim() : '';
@@ -218,8 +250,19 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'targetUid é obrigatório.' }, { status: 400 });
     }
 
-    if (targetUid === currentAdmin.uid) {
+    if (targetUid === currentAuth.uid) {
       return NextResponse.json({ error: 'Você não pode excluir sua própria conta.' }, { status: 400 });
+    }
+
+    const db = getAdminDb();
+    const targetDoc = await db.collection('users').doc(targetUid).get();
+    const targetData = targetDoc.exists ? targetDoc.data() : undefined;
+
+    // Se for Vendedor e não Admin, só pode excluir seus próprios representantes
+    if (isVendedor && !isAdmin) {
+      if (targetData?.sales?.emailVendedor !== currentAuth.email) {
+        return NextResponse.json({ error: 'Você só pode excluir seus próprios representantes.' }, { status: 403 });
+      }
     }
 
     await deleteUser(targetUid);

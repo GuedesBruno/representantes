@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import * as XLSX from 'xlsx';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { verifyIdToken } from '@/lib/firebase-admin';
 
@@ -31,6 +32,10 @@ export async function POST(request: NextRequest) {
       itens,
       totalGeral,
       representanteEmail,
+      representanteNome,
+      nomeOrgao,
+      nomeResponsavel,
+      cnpj,
     } = body;
 
     if (!kitId || !kitNome || !Array.isArray(itens) || totalGeral === undefined) {
@@ -42,15 +47,33 @@ export async function POST(request: NextRequest) {
 
     // Get representante user to fetch sales info
     const db = getAdminDb();
-    const userDoc = await db.collection('users').doc(representanteUid).get();
+    let userData: any = null;
 
-    if (!userDoc.exists) {
-      return NextResponse.json({ error: 'Representante não encontrado.' }, { status: 404 });
+    // 1. Tentar pelo UID (mais garantido)
+    const userDocByUid = await db.collection('users').doc(representanteUid).get();
+    if (userDocByUid.exists) {
+      userData = userDocByUid.data();
     }
 
-    const userData = userDoc.data();
+    // 2. Se não achou ou não tem vendedor no doc do UID, busca pelo e-mail
+    if (!userData?.sales?.emailVendedor) {
+      const userByEmailSnap = await db.collection('users')
+        .where('email', '==', representanteEmail)
+        .limit(1)
+        .get();
+      
+      if (!userByEmailSnap.empty) {
+        userData = userByEmailSnap.docs[0].data();
+      }
+    }
+
+    if (!userData) {
+      return NextResponse.json({ error: 'Representante não encontrado no sistema.' }, { status: 404 });
+    }
+
     const emailVendedor = userData?.sales?.emailVendedor;
     const nomeVendedor = userData?.sales?.nomeVendedor;
+    const finalRepresentanteNome = userData?.displayName || representanteNome;
 
     if (!emailVendedor) {
       return NextResponse.json(
@@ -65,6 +88,10 @@ export async function POST(request: NextRequest) {
       kitNome,
       representanteUid,
       representanteEmail,
+      representanteNome: finalRepresentanteNome,
+      nomeOrgao,
+      nomeResponsavel,
+      cnpj,
       nomeVendedor,
       emailVendedor,
       itens,
@@ -84,6 +111,10 @@ export async function POST(request: NextRequest) {
         vendedorNome: nomeVendedor,
         vendedorEmail: emailVendedor,
         representanteEmail,
+        representanteNome: finalRepresentanteNome,
+        nomeOrgao,
+        nomeResponsavel,
+        cnpj,
         kitNome,
         itens,
         totalGeral,
@@ -118,6 +149,10 @@ async function sendEmailToVendor({
   vendedorNome,
   vendedorEmail,
   representanteEmail,
+  representanteNome,
+  nomeOrgao,
+  nomeResponsavel,
+  cnpj,
   kitNome,
   itens,
   totalGeral,
@@ -126,6 +161,10 @@ async function sendEmailToVendor({
   vendedorNome: string;
   vendedorEmail: string;
   representanteEmail: string;
+  representanteNome?: string;
+  nomeOrgao: string;
+  nomeResponsavel: string;
+  cnpj: string;
   kitNome: string;
   itens: Array<{
     produtoId: string;
@@ -161,11 +200,11 @@ async function sendEmailToVendor({
     .map(
       (item) =>
         `
-        <tr style="border-bottom: 1px solid #eee;">
-          <td style="padding: 8px; text-align: left;">${item.nomeProduto}</td>
-          <td style="padding: 8px; text-align: center;">${item.quantidade}</td>
-          <td style="padding: 8px; text-align: right;">${formatCurrency(item.precoUnitario)}</td>
-          <td style="padding: 8px; text-align: right; font-weight: bold;">${formatCurrency(
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #edf2f7; color: #4a5568;">${item.nomeProduto}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #edf2f7; color: #4a5568; text-align: center;">${item.quantidade}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #edf2f7; color: #4a5568; text-align: right;">${formatCurrency(item.precoUnitario)}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #edf2f7; color: #1a202c; text-align: right; font-weight: bold;">${formatCurrency(
             item.precoUnitario * item.quantidade
           )}</td>
         </tr>
@@ -175,79 +214,143 @@ async function sendEmailToVendor({
 
   const htmlContent = `
     <!DOCTYPE html>
-    <html>
+    <html lang="pt-BR">
       <head>
         <meta charset="utf-8">
         <title>Nova Requisição de Cotação</title>
-        <style>
-          body { font-family: Arial, sans-serif; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-          .content { margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          th { background: #f9f9f9; padding: 10px; text-align: left; font-weight: bold; border-bottom: 2px solid #ddd; }
-          .total-row { background: #f0f0f0; font-weight: bold; }
-          .footer { color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
-        </style>
       </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0; color: #1a5490;">Nova Requisição de Cotação</h1>
-            <p style="margin: 8px 0 0 0; color: #666;">ID da Cotação: <strong>${quoteId}</strong></p>
+      <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #2d3748; background-color: #f7fafc; margin: 0; padding: 20px;">
+        <div style="max-width: 700px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0;">
+          
+          <div style="background-color: #1a5490; padding: 30px; text-align: center;">
+            <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">Solicitação de Cotação</h1>
+            <p style="margin: 10px 0 0 0; color: #ebf8ff; font-size: 14px; opacity: 0.9;">Protocolo: #${quoteId}</p>
           </div>
 
-          <div class="content">
-            <h2 style="font-size: 18px; margin-bottom: 12px;">Detalhes do Projeto</h2>
-            <p><strong>Kit/Projeto:</strong> ${kitNome}</p>
-            <p><strong>Representante:</strong> ${representanteEmail}</p>
-            <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-          </div>
-
-          <div class="content">
-            <h2 style="font-size: 18px; margin-bottom: 12px;">Produtos Solicitados</h2>
-            <table>
-              <thead>
+          <div style="padding: 40px;">
+            
+            <div style="margin-bottom: 35px;">
+              <h2 style="font-size: 18px; color: #2b6cb0; border-bottom: 2px solid #bee3f8; padding-bottom: 8px; margin-bottom: 20px;">Informações do Cliente (Órgão)</h2>
+              <table style="width: 100%; border-spacing: 0;">
                 <tr>
-                  <th>Produto</th>
-                  <th style="text-align: center;">Quantidade</th>
-                  <th style="text-align: right;">Preço Unitário</th>
-                  <th style="text-align: right;">Subtotal</th>
+                  <td style="padding: 8px 0; color: #718096; width: 140px;"><strong>Nome do Órgão:</strong></td>
+                  <td style="padding: 8px 0; color: #1a202c;">${nomeOrgao}</td>
                 </tr>
-              </thead>
-              <tbody>
-                ${itemsHtml}
-                <tr class="total-row">
-                  <td colspan="3" style="padding: 12px; text-align: right;">TOTAL:</td>
-                  <td style="padding: 12px; text-align: right;">${formatCurrency(totalGeral)}</td>
+                <tr>
+                  <td style="padding: 8px 0; color: #718096;"><strong>Responsável:</strong></td>
+                  <td style="padding: 8px 0; color: #1a202c;">${nomeResponsavel}</td>
                 </tr>
-              </tbody>
-            </table>
+                <tr>
+                  <td style="padding: 8px 0; color: #718096;"><strong>CNPJ:</strong></td>
+                  <td style="padding: 8px 0; color: #1a202c;">${cnpj}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="margin-bottom: 35px;">
+              <h2 style="font-size: 18px; color: #2b6cb0; border-bottom: 2px solid #bee3f8; padding-bottom: 8px; margin-bottom: 20px;">Detalhes do Representante</h2>
+              <table style="width: 100%; border-spacing: 0;">
+                <tr>
+                  <td style="padding: 8px 0; color: #718096; width: 140px;"><strong>Nome:</strong></td>
+                  <td style="padding: 8px 0; color: #1a202c;">${representanteNome || 'Não informado'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #718096;"><strong>E-mail:</strong></td>
+                  <td style="padding: 8px 0; color: #1a202c;">${representanteEmail}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #718096;"><strong>Data da Solicitação:</strong></td>
+                  <td style="padding: 8px 0; color: #1a202c;">${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="margin-bottom: 35px;">
+              <h2 style="font-size: 18px; color: #2b6cb0; border-bottom: 2px solid #bee3f8; padding-bottom: 8px; margin-bottom: 20px;">Produtos Solicitados (${kitNome})</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background-color: #f8fafc;">
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #4a5568; font-size: 13px;">PRODUTO</th>
+                    <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e2e8f0; color: #4a5568; font-size: 13px;">QTD</th>
+                    <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0; color: #4a5568; font-size: 13px;">UNITÁRIO</th>
+                    <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0; color: #4a5568; font-size: 13px;">SUBTOTAL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemsHtml}
+                  <tr style="background-color: #f1f5f9;">
+                    <td colspan="3" style="padding: 15px; text-align: right; font-weight: bold; color: #2d3748;">INVESTIMENTO TOTAL:</td>
+                    <td style="padding: 15px; text-align: right; font-weight: 900; color: #1a5490; font-size: 18px;">${formatCurrency(totalGeral)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="background-color: #fdf6b2; padding: 20px; border-radius: 8px; border-left: 4px solid #e3a008;">
+              <p style="margin: 0; color: #723b13; font-weight: bold;">Ação Necessária:</p>
+              <p style="margin: 10px 0 0 0; color: #723b13; line-height: 1.5;">O representante <strong>${representanteNome}</strong> aguarda o contato para tratar da cotação do projeto junto ao órgão <strong>${nomeOrgao}</strong>.</p>
+            </div>
+
           </div>
 
-          <div class="content" style="background: #f9f9f9; padding: 12px; border-radius: 6px;">
-            <p style="margin: 0;"><strong>Ação Necessária:</strong></p>
-            <p style="margin: 8px 0 0 0;">Por favor, entre em contato com o representante <strong>${representanteEmail}</strong> para fornecer a cotação para o projeto <strong>${kitNome}</strong>.</p>
+          <div style="background-color: #f7fafc; padding: 25px; text-align: center; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0; color: #a0aec0; font-size: 12px;">Portal de Representantes Tecassistiva &copy; ${new Date().getFullYear()}</p>
+            <p style="margin: 5px 0 0 0; color: #cbd5e0; font-size: 11px;">Este é um e-mail automático. Favor não responder.</p>
           </div>
 
-          <div class="footer">
-            <p>Este é um email automático do Portal de Representantes Tecassistiva. Favor não responder este email.</p>
-          </div>
         </div>
       </body>
     </html>
   `;
 
   try {
+    const subject = `Cotação ${nomeOrgao} - Representante ${representanteNome || representanteEmail}`;
+    
+    // Gerar Excel (.xlsx)
+    const worksheetData = itens.map(i => ({
+      'Produto': i.nomeProduto,
+      'Quantidade': i.quantidade,
+      'Preço Unitário': formatCurrency(i.precoUnitario),
+      'Subtotal': formatCurrency(i.precoUnitario * i.quantidade)
+    }));
+
+    // Adiciona linha de total no Excel
+    worksheetData.push({
+      'Produto': 'INVESTIMENTO TOTAL',
+      'Quantidade': 0, // placeholder
+      'Preço Unitário': '',
+      'Subtotal': formatCurrency(totalGeral)
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    
+    // Ajuste de largura das colunas no Excel
+    worksheet['!cols'] = [
+      { wch: 60 }, // Produto
+      { wch: 12 }, // Quantidade
+      { wch: 20 }, // Unitário
+      { wch: 20 }, // Subtotal
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Itens da Cotação');
+    const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
     await resend.emails.send({
       from: fromEmail,
       to: vendedorEmail,
-      subject: `[Cotação ${quoteId}] ${kitNome} - ${representanteEmail}`,
+      subject: subject,
       html: htmlContent,
       replyTo: representanteEmail,
+      attachments: [
+        {
+          filename: `Produtos_Cotacao_${nomeOrgao.replace(/[^a-z0-9]/gi, '_')}.xlsx`,
+          content: excelBuffer,
+        }
+      ]
     });
 
-    console.log(`Email enviado para ${vendedorEmail} (${vendedorNome})`);
+    console.log(`Email enviado para ${vendedorEmail} (${vendedorNome}) com anexo Excel.`);
     return {
       sent: true,
     };

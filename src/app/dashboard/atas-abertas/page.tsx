@@ -205,7 +205,7 @@ export default function AtasAbertasPage() {
               <h3 className={styles.folderTitle}>{pasta.nome}</h3>
               
               <div className={styles.folderIcon} aria-hidden="true">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                <svg width="110" height="110" viewBox="0 0 24 24" fill="none">
                   <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>

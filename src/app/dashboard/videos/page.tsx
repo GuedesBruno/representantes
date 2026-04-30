@@ -160,7 +160,7 @@ export default function VideosPage() {
           }
           else if (vUrlRaw?.data?.attributes?.url) vUrl = vUrlRaw.data.attributes.url;
 
-          if (vUrl && vUrl.startsWith('/')) vUrl = `${process.env.NEXT_PUBLIC_STRAPI_URL || 'https://api.tecassistiva.com.br'}${vUrl}`;
+          if (vUrl && vUrl.startsWith('/')) vUrl = `${process.env.NEXT_PUBLIC_STRAPI_URL || 'https://innovative-friendship-159ff40007.strapiapp.com'}${vUrl}`;
 
           if (slug && vUrl) {
             list.push({ slug: String(slug).toLowerCase(), videoUrl: String(vUrl) });

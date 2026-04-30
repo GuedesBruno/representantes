@@ -6,7 +6,7 @@ export async function GET() {
   
   try {
     // Busca os produtos do Strapi populando todos os campos (incluindo mídia e documentos)
-    const response = await fetch(`${STRAPI_URL}/api/produtos?populate=*`, {
+    const response = await fetch(`${STRAPI_URL}/api/produtos?populate=*&pagination[pageSize]=100`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

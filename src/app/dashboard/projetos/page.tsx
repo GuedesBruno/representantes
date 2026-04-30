@@ -103,6 +103,12 @@ function ProjetosPageContent() {
   const [requesting, setRequesting] = useState(false);
   const [requestStatus, setRequestStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Estados do Modal de Cotação
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [quoteOrgao, setQuoteOrgao] = useState('');
+  const [quoteResponsavel, setQuoteResponsavel] = useState('');
+  const [quoteCnpj, setQuoteCnpj] = useState('');
+
   useEffect(() => {
     let resolvedP = false;
     let resolvedK = false;
@@ -200,6 +206,19 @@ function ProjetosPageContent() {
 
   async function handleRequestQuote() {
     if (!user || currentItems.length === 0) return;
+
+    // Se o modal não estiver aberto, abre-o
+    if (!showQuoteModal) {
+      setShowQuoteModal(true);
+      return;
+    }
+
+    // Validação básica
+    if (!quoteOrgao.trim() || !quoteResponsavel.trim() || !quoteCnpj.trim()) {
+      setRequestStatus({ type: 'error', message: 'Preencha todos os campos obrigatórios.' });
+      return;
+    }
+
     setRequesting(true);
     setRequestStatus(null);
     try {
@@ -216,10 +235,20 @@ function ProjetosPageContent() {
           })),
           totalGeral: projectTotal,
           representanteEmail: user.email,
+          representanteNome: user.displayName,
+          // Novos campos
+          nomeOrgao: quoteOrgao.trim(),
+          nomeResponsavel: quoteResponsavel.trim(),
+          cnpj: quoteCnpj.trim(),
         }),
       });
       if (!response.ok) throw new Error('Erro ao enviar.');
       setRequestStatus({ type: 'success', message: 'Solicitação enviada!' });
+      setShowQuoteModal(false);
+      // Limpa os campos após sucesso
+      setQuoteOrgao('');
+      setQuoteResponsavel('');
+      setQuoteCnpj('');
     } catch {
       setRequestStatus({ type: 'error', message: 'Erro ao solicitar.' });
     } finally { setRequesting(false); }
@@ -245,32 +274,51 @@ function ProjetosPageContent() {
           {mode && <div className={styles.summaryValue}>{mode === 'investimento' ? 'Por Investimento' : 'Por Estrutura'}</div>}
         </div>
 
-        {/* ETAPA 2: Aparece após definir objetivo */}
+        {/* ETAPA 2 */}
         {mode && (
-          <div className={`${styles.summaryCard} ${activeStep === 2 && !isFinished ? styles.summaryCardActive : ''} ${(mode === 'investimento' ? budget > 0 : units > 0) ? styles.summaryCardDone : ''}`} onClick={() => goToStep(2)}>
+          <div 
+            className={`${styles.summaryCard} ${activeStep === 2 && !isFinished ? styles.summaryCardActive : ''} ${(mode === 'investimento' ? budget > 0 : selectedCategory) ? styles.summaryCardDone : ''}`} 
+            onClick={() => goToStep(2)}
+          >
             <span className={styles.summaryStep}>Etapa 2</span>
-            <span className={styles.summaryLabel}>{mode === 'investimento' ? 'Valor Disponível' : 'Quantidade de Kits'}</span>
-            {(mode === 'investimento' ? budget > 0 : units > 0) && (
-              <div className={styles.summaryValue}>{mode === 'investimento' ? formatCurrency(budget) : `${units} Unidades`}</div>
+            <span className={styles.summaryLabel}>{mode === 'investimento' ? 'Valor Disponível' : 'Onde Aplicar'}</span>
+            {mode === 'investimento' ? (
+              budget > 0 && <div className={styles.summaryValue}>{formatCurrency(budget)}</div>
+            ) : (
+              selectedCategory && <div className={styles.summaryValue}>{selectedCategory}</div>
             )}
           </div>
         )}
 
-        {/* ETAPA 3: Aparece após definir valor/unidades */}
-        {mode && (mode === 'investimento' ? budget > 0 : units > 0) && (
-          <div className={`${styles.summaryCard} ${activeStep === 3 && !isFinished ? styles.summaryCardActive : ''} ${selectedCategory ? styles.summaryCardDone : ''}`} onClick={() => goToStep(3)}>
+        {/* ETAPA 3 */}
+        {mode && (mode === 'investimento' ? budget > 0 : selectedCategory) && (
+          <div 
+            className={`${styles.summaryCard} ${activeStep === 3 && !isFinished ? styles.summaryCardActive : ''} ${(mode === 'investimento' ? selectedCategory : selectedLevel) ? styles.summaryCardDone : ''}`} 
+            onClick={() => goToStep(3)}
+          >
             <span className={styles.summaryStep}>Etapa 3</span>
-            <span className={styles.summaryLabel}>Onde Aplicar</span>
-            {selectedCategory && <div className={styles.summaryValue}>{selectedCategory}</div>}
+            <span className={styles.summaryLabel}>{mode === 'investimento' ? 'Onde Aplicar' : 'Escolha o Kit'}</span>
+            {mode === 'investimento' ? (
+              selectedCategory && <div className={styles.summaryValue}>{selectedCategory}</div>
+            ) : (
+              selectedLevel && <div className={styles.summaryValue}>{LEVEL_LABELS[selectedLevel]}</div>
+            )}
           </div>
         )}
 
-        {/* ETAPA 4: Aparece após definir categoria */}
-        {selectedCategory && (
-          <div className={`${styles.summaryCard} ${activeStep === 4 && !isFinished ? styles.summaryCardActive : ''} ${selectedLevel ? styles.summaryCardDone : ''}`} onClick={() => goToStep(4)}>
+        {/* ETAPA 4 */}
+        {mode && (mode === 'investimento' ? selectedCategory : selectedLevel) && (
+          <div 
+            className={`${styles.summaryCard} ${activeStep === 4 && !isFinished ? styles.summaryCardActive : ''} ${(mode === 'investimento' ? selectedLevel : units > 0) ? styles.summaryCardDone : ''}`} 
+            onClick={() => goToStep(4)}
+          >
             <span className={styles.summaryStep}>Etapa 4</span>
-            <span className={styles.summaryLabel}>Modelo Base</span>
-            {selectedLevel && <div className={styles.summaryValue}>{LEVEL_LABELS[selectedLevel]}</div>}
+            <span className={styles.summaryLabel}>{mode === 'investimento' ? 'Modelo Base' : 'Quantidade de Kits'}</span>
+            {mode === 'investimento' ? (
+              selectedLevel && <div className={styles.summaryValue}>{LEVEL_LABELS[selectedLevel]}</div>
+            ) : (
+              units > 0 && <div className={styles.summaryValue}>{units} Unidades</div>
+            )}
           </div>
         )}
       </div>
@@ -281,9 +329,9 @@ function ProjetosPageContent() {
           <div className={styles.columnHeader}>
             <h2 className={styles.columnTitle}>
               {activeStep === 1 && 'Como quer montar o projeto?'}
-              {activeStep === 2 && (mode === 'investimento' ? 'Qual o valor total?' : 'Quantos kits?')}
-              {activeStep === 3 && 'Escolha a categoria'}
-              {activeStep === 4 && 'Escolha o nível base do kit'}
+              {activeStep === 2 && (mode === 'investimento' ? 'Qual o valor total?' : 'Escolha a categoria')}
+              {activeStep === 3 && (mode === 'investimento' ? 'Escolha a categoria' : 'Escolha o kit')}
+              {activeStep === 4 && (mode === 'investimento' ? 'Escolha o nível base do kit' : 'Quantos kits?')}
             </h2>
           </div>
           <div className={styles.columnContent}>
@@ -304,104 +352,97 @@ function ProjetosPageContent() {
               </>
             )}
             {activeStep === 2 && (
-              <div className={styles.inputGroup}>
-                {mode === 'investimento' ? (
-                  <>
-                    <input type="number" className={styles.mainInput} value={budget} onChange={(e) => setBudget(Number(e.target.value))} autoFocus />
-                    <div className={styles.presetsGrid}>
-                      {INVESTMENT_VALUES.map((val) => (
-                        <button key={val} type="button" className={`${styles.presetBadge} ${budget === val ? styles.presetBadgeActive : ''}`} onClick={() => { setBudget(val); setActiveStep(3); }}>
-                          {formatCurrency(val)}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <input type="number" min={1} className={styles.mainInput} value={units} onChange={(e) => setUnits(Number(e.target.value))} autoFocus />
-                )}
-                <button className={styles.btnAction} style={{ marginTop: '1.5rem' }} onClick={() => setActiveStep(3)}>Continuar</button>
-              </div>
-            )}
-            {activeStep === 3 && FIXED_CATEGORIES.map(cat => (
-              <button key={cat} className={`${styles.optionCard} ${selectedCategory === cat ? styles.optionCardActive : ''}`} onClick={() => { setSelectedCategory(cat); setActiveStep(4); }}>
-                <div className={styles.kitInfoMain}>
-                  <div className={styles.optionTitle}>{cat}</div>
-                </div>
-              </button>
-            ))}
-            {activeStep === 4 && selectedCategory && LEVELS.map(lvl => {
-              const opt = kitsByCategory[selectedCategory][lvl];
-              if (!opt) return null;
-
-              // Cálculo de prévia do plano para este card
-              let previewText = '';
-              let hasExtras = false;
-              if (mode === 'investimento' && budget > 0) {
-                const primaryQty = Math.floor(budget / opt.total);
-                if (primaryQty > 0) {
-                  previewText = `${primaryQty}x ${opt.kit.nome}`;
-                  let remaining = budget - (primaryQty * opt.total);
-                  
-                  // Tenta achar o melhor kit extra para aproveitamento
-                  const otherOptions = LEVELS.map(l => kitsByCategory[selectedCategory][l])
-                    .filter((o): o is KitOption => !!o && o.kit.id !== opt.kit.id)
-                    .sort((a, b) => b.total - a.total);
-
-                  const extrasFound: string[] = [];
-                  let guard = 0;
-                  while (remaining > 0 && guard < 5) {
-                    const next = otherOptions.find(o => o.total <= remaining);
-                    if (!next) break;
-                    extrasFound.push(`1x ${next.kit.nome}`);
-                    remaining -= next.total;
-                    guard++;
-                  }
-
-                  if (extrasFound.length > 0) {
-                    hasExtras = true;
-                    previewText += ` + ${extrasFound.join(' + ')}`;
-                  }
-                } else {
-                  previewText = 'Valor insuficiente para este modelo';
-                }
-              }
-
-              return (
-                <button 
-                  key={lvl} 
-                  className={`${styles.optionCard} ${selectedLevel === lvl ? styles.optionCardActive : ''} ${kitEmDetalhe?.id === opt.kit.id ? styles.optionCardInspecting : ''}`} 
-                  onClick={() => { setSelectedLevel(lvl); setIsFinished(true); }}
-                >
-                  <div className={styles.kitInfoMain}>
-                    <div className={styles.optionTitle}>{opt.kit.nome}</div>
-                    {mode === 'investimento' && previewText && (
-                      <div className={`${styles.previewComposition} ${hasExtras ? styles.hasExtras : ''}`}>
-                        {previewText}
-                      </div>
-                    )}
-                    <div className={styles.kitPriceRow}>
-                      <span className={styles.kitPriceValue}>{formatCurrency(opt.total)}</span>
-                      <span className={styles.kitPriceUnit}> por kit</span>
-                    </div>
+              mode === 'investimento' ? (
+                <div className={styles.inputGroup}>
+                  <input type="number" className={styles.mainInput} value={budget} onChange={(e) => setBudget(Number(e.target.value))} autoFocus />
+                  <div className={styles.presetsGrid}>
+                    {INVESTMENT_VALUES.map((val) => (
+                      <button key={val} type="button" className={`${styles.presetBadge} ${budget === val ? styles.presetBadgeActive : ''}`} onClick={() => { setBudget(val); setActiveStep(3); }}>
+                        {formatCurrency(val)}
+                      </button>
+                    ))}
                   </div>
-                  <span className={styles.optionDetailsBtn} onClick={(e) => { 
-                    e.stopPropagation(); 
-                    const card = e.currentTarget.closest(`.${styles.optionCard}`) as HTMLElement;
-                    const column = e.currentTarget.closest(`.${styles.optionsColumn}`) as HTMLElement;
-                    if (card && column) {
-                      const cardRect = card.getBoundingClientRect();
-                      const colRect = column.getBoundingClientRect();
-                      const top = (cardRect.top - colRect.top) + (cardRect.height / 2);
-                      setPointerTop(top);
-                    }
-                    setKitEmDetalhe(opt.kit); 
-                  }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                    Itens
-                  </span>
-                </button>
-              );
-            })}
+                  <button className={styles.btnAction} style={{ marginTop: '1.5rem' }} onClick={() => setActiveStep(3)}>Continuar</button>
+                </div>
+              ) : (
+                FIXED_CATEGORIES.map(cat => (
+                  <button key={cat} className={`${styles.optionCard} ${selectedCategory === cat ? styles.optionCardActive : ''}`} onClick={() => { setSelectedCategory(cat); setActiveStep(3); }}>
+                    <div className={styles.kitInfoMain}>
+                      <div className={styles.optionTitle}>{cat}</div>
+                    </div>
+                  </button>
+                ))
+              )
+            )}
+            {activeStep === 3 && (
+              mode === 'investimento' ? (
+                FIXED_CATEGORIES.map(cat => (
+                  <button key={cat} className={`${styles.optionCard} ${selectedCategory === cat ? styles.optionCardActive : ''}`} onClick={() => { setSelectedCategory(cat); setActiveStep(4); }}>
+                    <div className={styles.kitInfoMain}>
+                      <div className={styles.optionTitle}>{cat}</div>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                selectedCategory && LEVELS.map(lvl => {
+                  const opt = kitsByCategory[selectedCategory][lvl];
+                  if (!opt) return null;
+                  return (
+                    <button 
+                      key={lvl} 
+                      className={`${styles.optionCard} ${selectedLevel === lvl ? styles.optionCardActive : ''}`} 
+                      onClick={() => { setSelectedLevel(lvl); setActiveStep(4); }}
+                    >
+                      <div className={styles.kitInfoMain}>
+                        <div className={styles.optionTitle}>{opt.kit.nome}</div>
+                        <div className={styles.kitPriceRow}>
+                          <span className={styles.kitPriceValue}>{formatCurrency(opt.total)}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )
+            )}
+            {activeStep === 4 && (
+              mode === 'investimento' ? (
+                selectedCategory && LEVELS.map(lvl => {
+                  const opt = kitsByCategory[selectedCategory][lvl];
+                  if (!opt) return null;
+                  return (
+                    <button 
+                      key={lvl} 
+                      className={`${styles.optionCard} ${selectedLevel === lvl ? styles.optionCardActive : ''}`} 
+                      onClick={() => { setSelectedLevel(lvl); setIsFinished(true); }}
+                    >
+                      <div className={styles.kitInfoMain}>
+                        <div className={styles.optionTitle}>{opt.kit.nome}</div>
+                        <div className={styles.kitPriceRow}>
+                          <span className={styles.kitPriceValue}>{formatCurrency(opt.total)}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className={styles.inputGroup}>
+                  <input 
+                    type="number" 
+                    min={1} 
+                    className={styles.mainInput} 
+                    value={units} 
+                    onChange={(e) => {
+                      setUnits(Number(e.target.value));
+                      // Bug Fix: Reset manual customizations when units change
+                      setCustomQuantities({});
+                      setIsEditing(false);
+                    }} 
+                    autoFocus 
+                  />
+                  <button className={styles.btnAction} style={{ marginTop: '1.5rem' }} onClick={() => setIsFinished(true)}>Finalizar Projeto</button>
+                </div>
+              )
+            )}
           </div>
         </div>
       )}
@@ -538,6 +579,77 @@ function ProjetosPageContent() {
           </>
         )}
       </div>
+
+      {/* MODAL DE SOLICITAÇÃO */}
+      {showQuoteModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Informações da Cotação</h3>
+            </div>
+            <div className={styles.modalBody}>
+              <div className={styles.formField}>
+                <label className={styles.modalLabel}>Nome do Órgão *</label>
+                <input 
+                  type="text" 
+                  className={styles.modalInput} 
+                  value={quoteOrgao} 
+                  onChange={(e) => setQuoteOrgao(e.target.value)}
+                  placeholder="Ex: Prefeitura de São Paulo"
+                  required
+                />
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.modalLabel}>Nome do Responsável *</label>
+                <input 
+                  type="text" 
+                  className={styles.modalInput} 
+                  value={quoteResponsavel} 
+                  onChange={(e) => setQuoteResponsavel(e.target.value)}
+                  placeholder="Ex: João Silva"
+                  required
+                />
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.modalLabel}>CNPJ *</label>
+                <input 
+                  type="text" 
+                  className={styles.modalInput} 
+                  value={quoteCnpj} 
+                  onChange={(e) => setQuoteCnpj(e.target.value)}
+                  placeholder="00.000.000/0000-00"
+                  required
+                />
+              </div>
+
+              {requestStatus?.type === 'error' && (
+                <div style={{ color: '#ef4444', fontSize: '0.875rem', fontWeight: 600 }}>
+                  {requestStatus.message}
+                </div>
+              )}
+            </div>
+            <div className={styles.modalFooter}>
+              <button 
+                className={styles.btnSecondary} 
+                onClick={() => {
+                  setShowQuoteModal(false);
+                  setRequestStatus(null);
+                }}
+                disabled={requesting}
+              >
+                Cancelar
+              </button>
+              <button 
+                className={styles.btnAction} 
+                onClick={handleRequestQuote}
+                disabled={requesting}
+              >
+                {requesting ? 'Processando...' : 'Confirmar Solicitação'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

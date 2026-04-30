@@ -51,9 +51,18 @@ interface SortableCategoryProps {
   onEditChange?: (val: string) => void;
   onEditSave?: () => void;
   onEditCancel?: () => void;
+  isAdmin?: boolean;
 }
 
-function SortableCategory({ id, categoria, children, onEdit, isEditing, editValue, onEditChange, onEditSave, onEditCancel }: SortableCategoryProps) {
+function abbreviate(text: string, maxLength: number = 60) {
+  if (text.length <= maxLength) return text;
+  const charsToShow = maxLength - 3;
+  const frontChars = Math.ceil(charsToShow / 2);
+  const backChars = Math.floor(charsToShow / 2);
+  return text.substr(0, frontChars) + '...' + text.substr(text.length - backChars);
+}
+
+function SortableCategory({ id, categoria, children, onEdit, isEditing, editValue, onEditChange, onEditSave, onEditCancel, isAdmin }: SortableCategoryProps) {
   const {
     attributes,
     listeners,
@@ -70,9 +79,11 @@ function SortableCategory({ id, categoria, children, onEdit, isEditing, editValu
   return (
     <div ref={setNodeRef} style={style} className={styles.categoriaSection}>
       <div className={styles.categoriaHeader}>
-        <div className={styles.dragHandle} {...attributes} {...listeners}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 9l7 7 7-7"/></svg>
-        </div>
+        {isAdmin && (
+          <div className={styles.dragHandle} {...attributes} {...listeners}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 9l7 7 7-7"/></svg>
+          </div>
+        )}
         
         {isEditing ? (
           <input
@@ -198,7 +209,11 @@ export default function TabelaPrecosVisual() {
     let value: string | number = editValue.trim();
 
     if (field === 'valor') {
-      const parsed = parseFloat(value.replace(/[^\d,.-]/g, '').replace(',', '.'));
+      // Remove tudo exceto dígitos e vírgula
+      const cleanValue = value.replace(/[^\d,]/g, '');
+      const normalized = cleanValue.replace(',', '.');
+      const parsed = parseFloat(normalized);
+      
       if (isNaN(parsed)) {
         setEditingCell(null);
         setEditValue('');
@@ -392,6 +407,7 @@ export default function TabelaPrecosVisual() {
               key={categoria} 
               id={categoria} 
               categoria={categoria}
+              isAdmin={isAdmin}
               isEditing={editingCell?.itemId === categoria && editingCell.field === 'categoria_title'}
               editValue={editValue}
               onEdit={() => handleEditStart(categoria, 'categoria_title', categoria)}
@@ -404,10 +420,10 @@ export default function TabelaPrecosVisual() {
                 <thead>
                   <tr>
                     {isAdmin && <th style={{width: 40}}></th>}
-                    <th>Produto</th>
-                    <th>Fabricante</th>
-                    <th>Valor</th>
-                    {isAdmin && <th style={{width: 60}}></th>}
+                    <th className={styles.colProduto}>Produto</th>
+                    <th className={styles.colFabricante}>Fabricante</th>
+                    <th className={styles.colValor}>Valor</th>
+                    {isAdmin && <th className={styles.colActions}></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -416,6 +432,7 @@ export default function TabelaPrecosVisual() {
                         <td
                           onClick={() => handleEditStart(item.id, 'produto', item.produto)}
                           style={{ cursor: isAdmin ? 'pointer' : 'default' }}
+                          title={item.produto.length > 60 ? item.produto : undefined}
                         >
                           {editingCell?.itemId === item.id && editingCell.field === 'produto' ? (
                             <input
@@ -430,7 +447,7 @@ export default function TabelaPrecosVisual() {
                               autoFocus
                             />
                           ) : (
-                            item.produto
+                            abbreviate(item.produto)
                           )}
                         </td>
                         <td

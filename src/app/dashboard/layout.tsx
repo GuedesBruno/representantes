@@ -69,7 +69,7 @@ const NAV_ITEMS = [
       },
       {
         href: '/dashboard/projetos',
-        label: 'Projetos (Novo)',
+        label: 'Projetos',
         icon: (
           <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -142,7 +142,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard/tabela-precos': 'Tabela de Preços',
   '/dashboard/videos': 'Vídeos',
   '/dashboard/produtos': 'Produtos',
-  '/dashboard/projetos': 'Projetos (Novo)',
+  '/dashboard/projetos': 'Projetos',
   '/dashboard/projetos-modelos': 'Projetos (Antigo)',
   '/dashboard/admin/produtos-modelos': 'Catálogo (Admin)',
   '/dashboard/admin/kits-modelos': 'Kits Modelos (Admin)',
@@ -209,7 +209,7 @@ function getOrderedMaterialItems<T extends { href: string }>(items: T[], materia
 function SidebarContent() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isVendedor, logout } = useAuth();
   const [materialOrder, setMaterialOrder] = useState<string[]>(DEFAULT_MATERIAL_ORDER);
 
   const handleLogout = async () => {
@@ -275,7 +275,7 @@ function SidebarContent() {
             ))}
           </div>
         ))}
-        {isAdmin && (
+        {(isAdmin || isVendedor) && (
           <div className={styles.navSection}>
             <div className={styles.navSectionLabel} aria-hidden="true">
               Admin

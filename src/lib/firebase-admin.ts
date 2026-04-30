@@ -71,15 +71,16 @@ function getAdminDb() {
 
 export { getAdminDb };
 
-type UserRole = 'admin' | 'representante';
+type UserRole = 'admin' | 'vendedor' | 'representante';
 
 export async function setUserRole(targetUid: string, role: UserRole) {
   const auth = getAdminAuth();
   const db = getAdminDb();
   const now = new Date();
   const isAdmin = role === 'admin';
+  const isVendedor = role === 'vendedor';
 
-  await auth.setCustomUserClaims(targetUid, { admin: isAdmin });
+  await auth.setCustomUserClaims(targetUid, { admin: isAdmin, vendedor: isVendedor });
   await auth.revokeRefreshTokens(targetUid);
 
   await db.collection('users').doc(targetUid).set(
@@ -185,7 +186,8 @@ export async function inviteUser(input: {
   }
 
   const isAdmin = input.role === 'admin';
-  await auth.setCustomUserClaims(userRecord.uid, { admin: isAdmin });
+  const isVendedor = input.role === 'vendedor';
+  await auth.setCustomUserClaims(userRecord.uid, { admin: isAdmin, vendedor: isVendedor });
   await auth.revokeRefreshTokens(userRecord.uid);
 
   const baseProfile = {
@@ -272,8 +274,9 @@ export async function upsertUserProfile(input: {
     uid: input.uid,
     email: input.email,
     displayName: input.displayName ?? null,
-    role: input.isAdmin ? 'admin' : 'representante',
+    role: input.isAdmin ? 'admin' : 'representante', // Note: upsert typically used for auto-signup, defaults to repr or admin
     isAdmin: input.isAdmin,
+    isVendedor: false,
     profile: profileDefaults,
     preferences: preferencesDefaults,
     business: businessDefaults,
@@ -312,6 +315,16 @@ export async function verifyAdminIdToken(idToken: string) {
 
   if (!decodedToken.admin) {
     throw new Error('Usuário sem permissão de administrador.');
+  }
+
+  return decodedToken;
+}
+
+export async function verifyManagementIdToken(idToken: string) {
+  const decodedToken = await getAdminAuth().verifyIdToken(idToken);
+
+  if (!decodedToken.admin && !decodedToken.vendedor) {
+    throw new Error('Usuário sem permissão de acesso.');
   }
 
   return decodedToken;

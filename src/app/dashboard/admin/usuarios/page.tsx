@@ -1,13 +1,14 @@
 'use client';
 
 import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import styles from './usuarios-admin.module.css';
 
-type UserRole = 'admin' | 'representante';
+type UserRole = 'admin' | 'vendedor' | 'representante';
 
 interface VendedorOption {
   nome: string;
@@ -77,7 +78,7 @@ const DEFAULT_INVITE = {
 
 
 function AdminUsuariosPageInner() {
-  const { user, isAdmin, loading, refreshClaims } = useAuth();
+  const { user, isAdmin, isVendedor, loading, refreshClaims } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -97,6 +98,7 @@ function AdminUsuariosPageInner() {
   const [inviteSuccess, setInviteSuccess] = useState('');
   const [inviteResetLink, setInviteResetLink] = useState('');
   const [deleting, setDeleting] = useState<string>('');
+  const [resetting, setResetting] = useState<string>('');
 
   const selectedUid = selected?.uid || selected?.id || '';
   const isEditingCurrentUser = Boolean(user?.uid && selectedUid && user.uid === selectedUid);
@@ -104,10 +106,10 @@ function AdminUsuariosPageInner() {
   const inviteOpen = searchParams.get('invite') === '1';
 
   useEffect(() => {
-    if (!loading && !isAdmin) {
+    if (!loading && !isAdmin && !isVendedor) {
       router.replace('/dashboard');
     }
-  }, [loading, isAdmin, router]);
+  }, [loading, isAdmin, isVendedor, router]);
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -222,14 +224,21 @@ function AdminUsuariosPageInner() {
 
 
   const filteredUsers = useMemo(() => {
-    if (!search.trim()) return users;
+    let baseUsers = users;
+
+    // Se for Vendedor e não Admin, só vê os seus representantes
+    if (isVendedor && !isAdmin && user?.email) {
+      baseUsers = users.filter((u) => u.sales?.emailVendedor === user.email);
+    }
+
+    if (!search.trim()) return baseUsers;
     const term = search.toLowerCase();
-    return users.filter((u) =>
+    return baseUsers.filter((u) =>
       [u.email, u.displayName, u.profile?.nomeComercial, u.profile?.regiao]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(term))
     );
-  }, [users, search]);
+  }, [users, search, isVendedor, isAdmin, user?.email]);
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
@@ -307,8 +316,8 @@ function AdminUsuariosPageInner() {
           uf: invite.uf || null,
         },
         sales: {
-          nomeVendedor: invite.nomeVendedor || null,
-          emailVendedor: invite.emailVendedor || null,
+          nomeVendedor: isVendedor && !isAdmin ? (user?.displayName || '') : (invite.nomeVendedor || null),
+          emailVendedor: isVendedor && !isAdmin ? (user?.email || '') : (invite.emailVendedor || null),
         },
       };
 
@@ -376,12 +385,30 @@ function AdminUsuariosPageInner() {
     }
   }
 
+  async function handleResetPassword(email: string, uid: string) {
+    if (!user) return;
+    const confirmed = window.confirm(
+      `Enviar e-mail de redefinição de senha para "${email}"?`
+    );
+    if (!confirmed) return;
+
+    setResetting(uid);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert('E-mail de redefinição enviado com sucesso!');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao enviar e-mail de redefinição.');
+    } finally {
+      setResetting('');
+    }
+  }
+
 
   if (loading || loadingData) {
     return <div className={styles.loading}>Carregando usuários…</div>;
   }
-
-  if (!isAdmin) return null;
+  
+  if (!isAdmin && !isVendedor) return null;
 
   if (loadError) {
     return <div className={styles.error}>{loadError}</div>;
@@ -412,16 +439,19 @@ function AdminUsuariosPageInner() {
                 />
               </label>
 
-              <label>
-                Role
-                <select
-                  value={invite.role}
-                  onChange={(e) => setInvite((p) => ({ ...p, role: e.target.value as UserRole }))}
-                >
-                  <option value="representante">representante</option>
-                  <option value="admin">admin</option>
-                </select>
-              </label>
+              {!isVendedor || isAdmin ? (
+                <label>
+                  Tipo
+                  <select
+                    value={invite.role}
+                    onChange={(e) => setInvite((p) => ({ ...p, role: e.target.value as UserRole }))}
+                  >
+                    <option value="representante">representante</option>
+                    {isAdmin && <option value="vendedor">vendedor</option>}
+                    {isAdmin && <option value="admin">admin</option>}
+                  </select>
+                </label>
+              ) : null}
 
               <label>
                 Nome da Empresa
@@ -471,13 +501,20 @@ function AdminUsuariosPageInner() {
                 <select
                   value={invite.emailVendedor}
                   onChange={(e) => handleInviteVendedorChange(e.target.value)}
+                  disabled={isVendedor && !isAdmin}
                 >
-                  <option value="">Selecione um vendedor</option>
-                  {VENDEDORES.map((vendedor) => (
-                    <option key={vendedor.email} value={vendedor.email}>
-                      {vendedor.nome} ({vendedor.email})
-                    </option>
-                  ))}
+                  {isVendedor && !isAdmin ? (
+                    <option value={user?.email || ''}>{user?.displayName || user?.email}</option>
+                  ) : (
+                    <>
+                      <option value="">Selecione um vendedor</option>
+                      {VENDEDORES.map((vendedor) => (
+                        <option key={vendedor.email} value={vendedor.email}>
+                          {vendedor.nome} ({vendedor.email})
+                        </option>
+                      ))}
+                    </>
+                  )}
                 </select>
               </label>
             </div>
@@ -508,7 +545,7 @@ function AdminUsuariosPageInner() {
                 <th>E-mail</th>
                 <th>Nome</th>
                 <th>Região</th>
-                <th>Role</th>
+                {(isAdmin || !isVendedor) && <th>Tipo</th>}
                 <th></th>
               </tr>
             </thead>
@@ -518,14 +555,25 @@ function AdminUsuariosPageInner() {
                   <td>{u.email}</td>
                   <td>{u.displayName || u.profile?.nomeComercial || '—'}</td>
                   <td>{u.profile?.regiao || '—'}</td>
-                  <td>
-                    <span className={`${styles.roleBadge} ${u.isAdmin ? styles.roleAdmin : styles.roleRep}`}>
-                      {u.isAdmin ? 'admin' : 'representante'}
-                    </span>
-                  </td>
+                  {(isAdmin || !isVendedor) && (
+                    <td>
+                      <span className={`${styles.roleBadge} ${u.role === 'admin' ? styles.roleAdmin : u.role === 'vendedor' ? styles.roleSeller : styles.roleRep}`}>
+                        {u.role || (u.isAdmin ? 'admin' : 'representante')}
+                      </span>
+                    </td>
+                  )}
                   <td>
                     <button type="button" className={styles.editButton} onClick={() => openEditor(u)}>
                       Editar
+                    </button>
+                    <button 
+                      type="button" 
+                      className={styles.resetButton} 
+                      disabled={resetting === (u.uid || u.id)}
+                      onClick={() => handleResetPassword(u.email, u.uid || u.id)}
+                      title="Enviar e-mail de redefinição de senha"
+                    >
+                      {resetting === (u.uid || u.id) ? '…' : 'Senha'}
                     </button>
                     {(u.uid || u.id) !== user?.uid && (
                       <button
@@ -565,17 +613,20 @@ function AdminUsuariosPageInner() {
                   />
                 </label>
 
-                <label>
-                  Role
-                  <select
-                    value={editor.role}
-                    onChange={(e) => setEditor((p) => ({ ...p, role: e.target.value as UserRole }))}
-                    disabled={isEditingCurrentUser}
-                  >
-                    <option value="representante">representante</option>
-                    <option value="admin">admin</option>
-                  </select>
-                </label>
+                {!isVendedor || isAdmin ? (
+                  <label>
+                    Tipo
+                    <select
+                      value={editor.role}
+                      onChange={(e) => setEditor((p) => ({ ...p, role: e.target.value as UserRole }))}
+                      disabled={isEditingCurrentUser}
+                    >
+                      <option value="representante">representante</option>
+                      {isAdmin && <option value="vendedor">vendedor</option>}
+                      {isAdmin && <option value="admin">admin</option>}
+                    </select>
+                  </label>
+                ) : null}
 
                 <label>
                   Nome comercial
@@ -635,13 +686,20 @@ function AdminUsuariosPageInner() {
                   <select
                     value={editor.emailVendedor}
                     onChange={(e) => handleVendedorChange(e.target.value)}
+                    disabled={isVendedor && !isAdmin}
                   >
-                    <option value="">Selecione um vendedor</option>
-                    {VENDEDORES.map((vendedor) => (
-                      <option key={vendedor.email} value={vendedor.email}>
-                        {vendedor.nome} ({vendedor.email})
-                      </option>
-                    ))}
+                    {isVendedor && !isAdmin ? (
+                      <option value={user?.email || ''}>{user?.displayName || user?.email}</option>
+                    ) : (
+                      <>
+                        <option value="">Selecione um vendedor</option>
+                        {VENDEDORES.map((vendedor) => (
+                          <option key={vendedor.email} value={vendedor.email}>
+                            {vendedor.nome} ({vendedor.email})
+                          </option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </label>
 

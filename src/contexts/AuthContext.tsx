@@ -22,6 +22,7 @@ import { auth } from '@/lib/firebase';
 interface AuthContextValue {
   user: User | null;
   isAdmin: boolean;
+  isVendedor: boolean;
   loading: boolean;
   refreshClaims: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
@@ -35,21 +36,25 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isVendedor, setIsVendedor] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadUserClaims = useCallback(async (firebaseUser: User | null) => {
     if (!firebaseUser) {
       setIsAdmin(false);
+      setIsVendedor(false);
       return;
     }
 
     const tokenResult = await firebaseUser.getIdTokenResult();
     setIsAdmin(Boolean(tokenResult.claims.admin));
+    setIsVendedor(Boolean(tokenResult.claims.vendedor));
   }, []);
 
   const refreshClaims = useCallback(async () => {
     if (!auth.currentUser) {
       setIsAdmin(false);
+      setIsVendedor(false);
       return;
     }
 
@@ -126,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, refreshClaims, login, resetPassword, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, isAdmin, isVendedor, loading, refreshClaims, login, resetPassword, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );

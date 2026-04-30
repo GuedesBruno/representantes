@@ -80,12 +80,27 @@
   background: var(--color-gray-100);
 }
 
+.roleSeller {
+  color: #854d0e;
+  background: #fef9c3;
+}
+
 .editButton {
   border: 1px solid var(--color-gray-300);
   background: var(--color-white);
   border-radius: var(--radius-sm);
   padding: 0.35rem 0.7rem;
   cursor: pointer;
+}
+
+.resetButton {
+  border: 1px solid #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  margin-left: 6px;
 }
 
 .deleteButton {

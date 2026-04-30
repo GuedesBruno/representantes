@@ -66,10 +66,11 @@
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  table-layout: fixed;
 }
 
 .visualTable th {
-  padding: 12px 24px;
+  padding: 12px 18px;
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -78,12 +79,21 @@
   border-bottom: 2px solid #e2e8f0;
 }
 
+.visualTable th:nth-child(1) { width: 40px; }
+.visualTable th.colProduto { width: auto; }
+.visualTable th.colFabricante { width: 220px; }
+.visualTable th.colValor { width: 140px; }
+.visualTable th.colActions { width: 60px; }
+
 .visualTable td {
-  padding: 12px 24px;
+  padding: 12px 18px;
   border-bottom: 1px solid #f1f5f9;
   font-size: 0.95rem;
   color: #334155;
   transition: background 0.2s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .visualTable tr:hover td {

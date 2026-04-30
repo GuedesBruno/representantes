@@ -87,12 +87,10 @@ export default function ProdutosPage() {
           else if (vUrlRaw?.data?.attributes?.url) vUrl = vUrlRaw.data.attributes.url;
           if (vUrl && vUrl.startsWith('/')) vUrl = `${process.env.NEXT_PUBLIC_STRAPI_URL || 'https://innovative-friendship-159ff40007.strapiapp.com'}${vUrl}`;
 
-          // (Documentos logic removed)
-
-          if (slug) {
+          if (slug && vUrl) {
             list.push({ 
               slug: String(slug).toLowerCase(), 
-              videoUrl: vUrl
+              videoUrl: String(vUrl)
             });
           }
         });
