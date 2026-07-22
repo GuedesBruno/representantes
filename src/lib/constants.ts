@@ -51,3 +51,11 @@ export const CATEGORIAS_KIT = [
   'Educação',
   'Bibliotecas',
 ];
+
+export const AMBIENTES_PRODUTO = [
+  'Escolar',
+  'Institutos Federais',
+  'Biblioteca Inclusiva',
+  'Universidades',
+  'Multi Atendimento',
+];

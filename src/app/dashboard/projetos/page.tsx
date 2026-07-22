@@ -13,6 +13,7 @@ interface ProdutoModelo {
   precoUnitario: number;
   fotoUrl?: string;
   descricaoCurta?: string;
+  ambientes?: string[];
 }
 
 interface KitItem {

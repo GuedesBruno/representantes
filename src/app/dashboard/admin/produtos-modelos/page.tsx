@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
+import { AMBIENTES_PRODUTO } from '@/lib/constants';
 import styles from './produtos-admin.module.css';
 
 export interface Produto {
@@ -27,6 +28,7 @@ export interface Produto {
   nomeAbreviado?: string;
   ordemExibicao?: number;
   categoria?: string;
+  ambientes?: string[];
   fotoUrl: string;
   catalogoUrl?: string;
   fotoPublicId?: string;
@@ -46,6 +48,7 @@ const EMPTY_FORM = {
   nomeAbreviado: '',
   ordemExibicao: '',
   categoria: '',
+  ambientes: [] as string[],
   fotoUrl: '',
   catalogoUrl: '',
   precoUnitario: '',
@@ -94,18 +97,21 @@ function detectDelimiter(headerLine: string): ',' | ';' {
 
 function normalizeRow(values: unknown[]): typeof EMPTY_FORM {
   const toText = (v: unknown) => String(v ?? '').trim();
+  const ambientesRaw = toText(values[3]);
+  const ambientes = ambientesRaw ? ambientesRaw.split(',').map(a => a.trim()).filter(Boolean) : [];
   return {
     nome: toText(values[0]),
     nomeAbreviado: toText(values[1]),
     categoria: toText(values[2]),
-    fotoUrl: toText(values[3]),
-    catalogoUrl: toText(values[4]),
-    precoUnitario: toText(values[5]),
-    linkSite: toText(values[6]),
-    videoUrl: toText(values[7]),
-    descricaoCurta: toText(values[8]),
-    ordemExibicao: toText(values[9]),
-    descricao: toText(values[10]),
+    ambientes,
+    fotoUrl: toText(values[4]),
+    catalogoUrl: toText(values[5]),
+    precoUnitario: toText(values[6]),
+    linkSite: toText(values[7]),
+    videoUrl: toText(values[8]),
+    descricaoCurta: toText(values[9]),
+    ordemExibicao: toText(values[10]),
+    descricao: toText(values[11]),
   };
 }
 
@@ -310,6 +316,7 @@ export default function ProdutosAdminPage() {
       nomeAbreviado: p.nomeAbreviado ?? '',
       ordemExibicao: p.ordemExibicao != null ? String(p.ordemExibicao) : '',
       categoria: p.categoria ?? '',
+      ambientes: p.ambientes ?? [],
       fotoUrl: p.fotoUrl,
       catalogoUrl: p.catalogoUrl ?? '',
       precoUnitario: String(p.precoUnitario),
@@ -360,6 +367,7 @@ export default function ProdutosAdminPage() {
         nomeAbreviado: form.nomeAbreviado.trim(),
         ordemExibicao,
         categoria: form.categoria.trim(),
+        ambientes: form.ambientes,
         fotoUrl: form.fotoUrl.trim(),
         catalogoUrl: form.catalogoUrl.trim(),
         precoUnitario: preco,
@@ -607,6 +615,7 @@ export default function ProdutosAdminPage() {
           nomeAbreviado: row.nomeAbreviado.trim(),
           ordemExibicao,
           categoria: row.categoria.trim(),
+          ambientes: row.ambientes,
           fotoUrl: row.fotoUrl.trim(),
           catalogoUrl: row.catalogoUrl.trim(),
           precoUnitario: preco,
@@ -646,6 +655,7 @@ export default function ProdutosAdminPage() {
       'nome',
       'nomeAbreviado',
       'categoria',
+      'ambientes',
       'fotoUrl',
       'catalogoUrl',
       'precoUnitario',
@@ -660,6 +670,7 @@ export default function ProdutosAdminPage() {
       `"${(p.nome || '').replace(/"/g, '""')}"`,
       `"${(p.nomeAbreviado || '').replace(/"/g, '""')}"`,
       `"${(p.categoria || '').replace(/"/g, '""')}"`,
+      `"${(p.ambientes || []).join(', ')}"`,
       `"${p.fotoUrl || ''}"`,
       `"${p.catalogoUrl || ''}"`,
       p.precoUnitario,
@@ -898,6 +909,27 @@ export default function ProdutosAdminPage() {
                   placeholder="Ex.: Eletrônicos"
                   autoComplete="off"
                 />
+              </div>
+              <div className={`${styles.field} ${styles.fieldFull}`}>
+                <label className={styles.label}>Ambientes</label>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  {AMBIENTES_PRODUTO.map(amb => (
+                    <label key={amb} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={form.ambientes.includes(amb)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setForm(prev => ({ ...prev, ambientes: [...prev.ambientes, amb] }));
+                          } else {
+                            setForm(prev => ({ ...prev, ambientes: prev.ambientes.filter(a => a !== amb) }));
+                          }
+                        }}
+                      />
+                      {amb}
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className={styles.field}>
                 <label className={styles.label} htmlFor="ordemExibicao">Ordem de Exibição</label>

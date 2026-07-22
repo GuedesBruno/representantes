@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import DOMPurify from 'dompurify';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { AMBIENTES_PRODUTO } from '@/lib/constants';
 import type { Produto } from '../admin/produtos-modelos/page';
 import styles from './produtos.module.css';
 
@@ -62,6 +63,7 @@ export default function ProdutosPage() {
   const [strapiData, setStrapiData] = useState<{ slug: string; videoUrl: string }[]>([]);
   const [busca, setBusca] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
+  const [ambienteFiltro, setAmbienteFiltro] = useState('');
 
   useEffect(() => {
     async function fetchStrapiVideos() {
@@ -138,9 +140,10 @@ export default function ProdutosPage() {
     return produtos.filter(p => {
       const matchBusca = p.nome.toLowerCase().includes(busca.toLowerCase()) || (p.nomeAbreviado || '').toLowerCase().includes(busca.toLowerCase());
       const matchCat = categoriaFiltro ? p.categoria === categoriaFiltro : true;
-      return matchBusca && matchCat;
+      const matchAmb = ambienteFiltro ? p.ambientes?.includes(ambienteFiltro) : true;
+      return matchBusca && matchCat && matchAmb;
     });
-  }, [produtos, busca, categoriaFiltro]);
+  }, [produtos, busca, categoriaFiltro, ambienteFiltro]);
 
   if (loading) {
     return <div className={styles.loading}>Carregando produtos...</div>;
@@ -161,6 +164,16 @@ export default function ProdutosPage() {
             onChange={e => setBusca(e.target.value)} 
             className={styles.searchInput}
           />
+          <select 
+            value={ambienteFiltro} 
+            onChange={e => setAmbienteFiltro(e.target.value)}
+            className={styles.selectInput}
+          >
+            <option value="">Todos os produtos</option>
+            {AMBIENTES_PRODUTO.map(amb => (
+              <option key={amb} value={amb}>{amb}</option>
+            ))}
+          </select>
           <select 
             value={categoriaFiltro} 
             onChange={e => setCategoriaFiltro(e.target.value)}

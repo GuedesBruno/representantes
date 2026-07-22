@@ -34,6 +34,11 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    match /produtos_backups/{backupId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
     match /itens_tabela_preco/{itemId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isAdmin();
